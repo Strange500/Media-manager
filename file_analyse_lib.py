@@ -11,7 +11,8 @@ tmdb.REQUESTS_TIMEOUT = 5  # seconds, for both connect and read
 class Anime():
     """Provide a view on the anime"""
 
-    def __init__(self,title) -> None:
+    def __init__(self,title:str) -> None:
+        
         search= tmdb.Search()
         os.makedirs("anime_database",exist_ok=True)
 
@@ -77,9 +78,12 @@ class Anime():
 
     def __str__(self) -> str:
         return f"{self.title} : {self.number_of_season} seasons"
+
 class Episode:
+    """Gives main property of a video"""
 
     def is_vostfr(self)->bool:
+        """check if episode is vostfr based on metadata"""
         tracks=self.tracks()
         return "fr" in tracks["subs"] and "ja" in tracks["audio"]
 
@@ -95,20 +99,15 @@ class Episode:
             
 
     def tracks(self):
-        media_info = self.media_info
-        tracks_list_subs=[]
-        tracks_list_audio=[]
+        """return dict containing subs and audio tracks"""
+        media_info,tracks_list_subs,tracks_list_audio = self.media_info,[],[]
         for track in media_info.tracks:
-            
             if track.track_type == "Audio":
                 try:
                     tracks_list_audio.append(track.to_data()["language"])
                 except KeyError:
                     tracks_list_audio.append("ja")
-
-        
             if track.track_type == "Text":
-
                 try:
                     tracks_list_subs.append(track.to_data()["language"])
                 except KeyError:
@@ -120,44 +119,38 @@ class Episode:
                                 tracks_list_subs.append("fr")
                         except:
                             pass
-
             if track.track_type == "Menu":
-
                 try:
                     tracks_list_subs.append(track.to_data()["language"])
                 except KeyError:
                     pass
-
-
-
-
         return {"subs":tracks_list_subs,"audio":tracks_list_audio}
 
     def extension(self):
+        """return file extension between mp4 and Mkv else NC"""
         if ".mp4" in self.path:
             return "mp4"
         elif ".mkv" in self.path:
             return "mkv"
+        return "NC"
 
-
-    def __init__(self,path) -> None:
+    def __init__(self,path:str) -> None:
         self.path=path
         self.media_info=MediaInfo.parse(self.path)
 
-
-
     def __repr__(self) -> str:
-        
         return self.path
 
     def info(self):
-        dic={
+        return {
             "path":self.path
             ,"track":self.track,
             "extension":self.ext,
             "codec":self.codec}
-        return dic
+
 class LightFile():
+    """
+    """
 
     def title(self):
         """return the title of a video"""
@@ -1083,7 +1076,8 @@ def store_nyaa(result:dict):
     json.dump(database,open("nyaa.json","w"),indent=4)
 
 
-def find_anime_id(title):
+def find_anime_id(title:str)->str:
+    """Return the id of the anime based on the title"""
     anime_id=json.load(open("anime_id.json",'r'))
     anime=title_to_romaji(title)
     

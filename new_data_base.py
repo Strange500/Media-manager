@@ -6,7 +6,8 @@ import time
 banned_words,select_words=open("banned_words.txt","r",encoding="utf-8").read().split("\n"),open("select_words.txt","r",encoding="utf-8").read().split("\n")
 
 
-def find_anime_id(title):
+def find_anime_id(title:str)->str:
+    """Return the tmdb id of the anime based on the title"""
     anime_id=json.load(open("anime_id.json",'r'))
     anime=title_to_romaji(title)
     
