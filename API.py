@@ -7,7 +7,7 @@ from json_API import *
 
 
 HTML_FILE_NAME = 'alive'
-PORT_NUMBER = 80
+PORT_NUMBER = 8080
 
 # This class will handles any incoming request from the browser
 class myHandler(CGIHTTPRequestHandler):
@@ -19,15 +19,29 @@ class myHandler(CGIHTTPRequestHandler):
 
     
     def make_response(self) -> None:
-        req_dic={
-            "/alive" : lambda : self.comfirm_request() or self.wfile.write(bytes(alive(),encoding="utf-8")),
-            "/space" : lambda : self.comfirm_request() or self.wfile.write(bytes(space(),encoding="utf-8")),
-            "/restart" : lambda : self.comfirm_request() or self.wfile.write(bytes(restart(),encoding="utf-8"))
-        }
-        try:
-            req_dic[self.path]()
-        except KeyError:
-            self.send_response(404, 'request means nothing: %s' % self.path)
+        if not "?" in self.path:
+            req_dic={
+                "/alive" : lambda : self.comfirm_request() or self.wfile.write(bytes(alive(),encoding="utf-8")),
+                "/space" : lambda : self.comfirm_request() or self.wfile.write(bytes(space(),encoding="utf-8")),
+                "/restart" : lambda : self.comfirm_request() or self.wfile.write(bytes(restart(),encoding="utf-8")),
+                "/cpu_temp" : lambda : self.comfirm_request() or self.wfile.write(bytes(cpu_temp(),encoding="utf-8"))
+
+            }
+            try:
+                req_dic[self.path]()
+            except KeyError:
+                self.send_response(404, 'request means nothing: %s' % self.path)
+        else:
+            
+            cgi_dic = {
+                "/is_user" : lambda : self.comfirm_request() or self.wfile.write(bytes(is_user(self.path),encoding="utf-8"))
+            }
+            try:
+                print("/"+self.path.split("/")[1])
+                cgi_dic["/"+self.path.split("/")[1]]()
+            except KeyError:
+                self.send_response(404, 'request means nothing: %s' % self.path)
+        
     # Handler for the GET requests
     
     def do_GET(self):
@@ -61,5 +75,4 @@ try:
 
 except KeyboardInterrupt:
     print('Interrupted by the user - shutting down the web server.')
-    server.socket.close()
     remove(HTML_FILE_NAME)

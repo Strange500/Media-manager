@@ -1,5 +1,6 @@
-import os,json,shutil,wmi
+import os,json,shutil,wmi,urllib.parse
 
+user_list = ["admin","Lester","La mom","Apo","Antoine","DrazZ"]
 
 def alive()->json:
     
@@ -24,5 +25,4 @@ def restart():
 # def temp():
 #     w_temp=wmi.WMI(namespace="root\\wmi")
 #     print(w_temp.)
-
 
