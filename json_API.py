@@ -11,11 +11,14 @@ def alive()->json:
 def space():
     list_disk,json_list= [f"{i}:\\" for i in [chr(k) for k in range(ord("A"),ord("Z")+1)]],{}
     for disk in list_disk:
-        try:
-            total, used, free = shutil.disk_usage(disk)
-            json_list[disk]={"total" : total,"used" : used,"free" : free}
-        except:
+        if disk == "G:\\":
             pass
+        else:
+            try:
+                total, used, free = shutil.disk_usage(disk)
+                json_list[disk]={"total" : total,"used" : used,"free" : free}
+            except:
+                pass
 
     return json.dumps(json_list,indent=5)
 
