@@ -43,4 +43,16 @@ def cpu_temp():
         if sensor.SensorType==u'Temperature' and sensor.name == "CPU Package":
             return json.dumps({"value" : sensor.value})
 
+def serv_log():
+    with open("log.txt","r") as f:
+        n,dic=0,{}
+        for line in f:
+            dic[n] = line.replace("\n","")
+            n+=1
+    return json.dumps(dic,indent=5)
+
+
+
+
+
 
