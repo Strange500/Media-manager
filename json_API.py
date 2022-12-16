@@ -1,4 +1,6 @@
 import os,json,shutil,wmi,urllib.parse
+import psutil
+
 
 user_list = ["admin","Lester","La mom","Apo","Antoine","DrazZ"]
 
@@ -37,9 +39,4 @@ def cpu_temp():
         if sensor.SensorType==u'Temperature':
             return json.dumps({"value" : sensor.value})
 
-
-
-# def temp():
-#     w_temp=wmi.WMI(namespace="root\\wmi")
-#     print(w_temp.)
 
