@@ -51,8 +51,11 @@ def cpu_temp():
 
 
 def serv_log():
-    text = ""
+    text,n = "",0
     with open("log.txt", "r") as f:
         for line in f:
-            text = text + line
+            text,n = text + line,n+1
+            if n == 50:
+                break
+            
     return json.dumps({"value": text}, indent=5)
