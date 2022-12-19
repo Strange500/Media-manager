@@ -36,7 +36,9 @@ class myHandler(CGIHTTPRequestHandler):
 
             cgi_dic = {
                 "/is_user": lambda: self.comfirm_request() or self.wfile.write(
-                    bytes(is_user(self.path), encoding="utf-8"))
+                    bytes(is_user(self.path), encoding="utf-8")),
+                "/dl" : lambda: self.comfirm_request() or self.wfile.write(
+                    bytes(dl(self.path), encoding="utf-8"))
             }
             try:
                 print("/" + self.path.split("/")[1])

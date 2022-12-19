@@ -11,3 +11,6 @@ __pycache__/json_API.cpython-311.pyc
 __pycache__/json_API.cpython-311.pyc
 *.json
 *.txt
+*.pyc
+*.pyc
+*.magnet

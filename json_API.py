@@ -3,13 +3,15 @@ import os
 import shutil
 import urllib.parse
 import tmdbsimple as tmdb
-tmdb.API_KEY ="TMDB_API_KEY"
-tmdb.REQUESTS_TIMEOUT = 5  # seconds, for both connect and read
-import wmi,requests
-from bs4 import BeautifulSoup as bs
 
+import wmi,requests,random
+from bs4 import BeautifulSoup as bs
+import time
+from pprint import pprint
 user_list = ["admin", "Lester", "La mom", "Apo", "Antoine", "DrazZ"]
 
+tmdb.API_KEY ="91d34b37526d54cfd3d6fcc5c50d0b31"
+tmdb.REQUESTS_TIMEOUT = 5  # seconds, for both connect and read
 
 def get_page(url:str):
     return requests.get(url).content
@@ -81,16 +83,51 @@ def stat_show():
 
     return json.dumps(dic,indent=5)
 
-
-def find_file_movie(id):
+def find_show_file(id,search):
+    pass
+def find_file_movie(id,search):
     # YFI on thepiratebay
-    search = "fight club"
     search = search.replace(" ","%20")
     scrap = bs(get_page(f"https://yts.rs/browse-movies/{search}/all/all/0/latest"),"html.parser")
     elt = scrap.find_all("a",class_="title")
     for title in elt:
-        print(title.text)
+        s = tmdb.Search()
+        id_test = s.movie(query=title.text)
+        id_test = s.results[0]['id']
+        if id_test == id:
+
+            scrap = bs(get_page("https://yts.rs" + title["href"]), "html.parser")
+            elt = scrap.find_all("a",class_="download-torrent")
+            ls = [i["href"] for i in elt if "1080" in i["title"] and "magnet" in i["href"]]
+            return ls[0]
+    
+    return "nothing found"
+
+def dl(req:str):
+    try:
+        req = req.split("?")[-1].split("&")
+        is_show = req[0].split("=")[-1]
+        list_id = [i.split(":") for i in req[-1].split("=")[-1].split("+")]
+        if is_show == "true":
+            return json.dumps({"statut": "error"}, indent=5)
+            pass
+
+        else:
+            print(list_id)
+            for id in list_id:
+                
+                url = find_file_movie(int(id[0]), id[1])
+                os.makedirs("torrent",exist_ok=True)
+                open(f"torrent/{str(random.randint(500,500000))}.magnet","w").write(url)
+                time.sleep(1) # avoid ban ip
+            print("done")
+            return json.dumps({"statut" : "sucess"},indent=5)
+
+    except:
+        return json.dumps({"statut" : "error"},indent=5)
+        
 
 
 if __name__=="__main__":
-    print(find_file_movie(680))
+    # print(find_file_movie(680,"pulp fiction"))
+    print(dl("http://127.0.0.1:8080/dl/?is_show=false&q=767:Harry%20Potter%20and%20the%20Half-Blood%20Prince+674:Harry%20Potter%20and%20the%20Goblet%20of%20Fire"))
