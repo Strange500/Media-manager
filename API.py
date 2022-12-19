@@ -24,7 +24,8 @@ class myHandler(CGIHTTPRequestHandler):
                 "/space": lambda: self.comfirm_request() or self.wfile.write(bytes(space(), encoding="utf-8")),
                 "/restart": lambda: self.comfirm_request() or self.wfile.write(bytes(restart(), encoding="utf-8")),
                 "/cpu_temp": lambda: self.comfirm_request() or self.wfile.write(bytes(cpu_temp(), encoding="utf-8")),
-                "/log": lambda: self.comfirm_request() or self.wfile.write(bytes(serv_log(), encoding="utf-8"))
+                "/log": lambda: self.comfirm_request() or self.wfile.write(bytes(serv_log(), encoding="utf-8")),
+                "/stats_lib": lambda: self.comfirm_request() or self.wfile.write(bytes(stat_show(), encoding="utf-8"))
 
             }
             try:

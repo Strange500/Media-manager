@@ -2,10 +2,18 @@ import json
 import os
 import shutil
 import urllib.parse
-
-import wmi
+import tmdbsimple as tmdb
+tmdb.API_KEY ="TMDB_API_KEY"
+tmdb.REQUESTS_TIMEOUT = 5  # seconds, for both connect and read
+import wmi,requests
+from bs4 import BeautifulSoup as bs
 
 user_list = ["admin", "Lester", "La mom", "Apo", "Antoine", "DrazZ"]
+
+
+def get_page(url:str):
+    return requests.get(url).content
+
 
 
 def alive() -> json:
@@ -59,3 +67,30 @@ def serv_log():
                 break
             
     return json.dumps({"value": text}, indent=5)
+
+def nb_uncomplete():
+    d = json.load(open("missing.json","r"))
+    d = [elt for elt in d if d[elt] == [] ]
+    return len(d)
+
+
+def stat_show():
+    dic={}
+    dic["nb_show"] = len(json.load(open("anime_lib.json","r")))
+    dic["uncomplete"] = round(nb_uncomplete() / dic["nb_show"],2)*100
+
+    return json.dumps(dic,indent=5)
+
+
+def find_file_movie(id):
+    # YFI on thepiratebay
+    search = "fight club"
+    search = search.replace(" ","%20")
+    scrap = bs(get_page(f"https://yts.rs/browse-movies/{search}/all/all/0/latest"),"html.parser")
+    elt = scrap.find_all("a",class_="title")
+    for title in elt:
+        print(title.text)
+
+
+if __name__=="__main__":
+    print(find_file_movie(680))
