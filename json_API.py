@@ -62,13 +62,11 @@ def cpu_temp():
 
 def serv_log():
     text,n = "",0
-    with open("log.txt", "r") as f:
-        for line in f:
-            text,n = text + line,n+1
-            if n == 50:
-                break
-            
-    return json.dumps({"value": text}, indent=5)
+    t = open("log.txt","r",encoding="utf-8").read().split("\n")[::-1]
+    if len(t)<50:
+        return json.dumps({"value": "\n".join(t)}, indent=5)
+    else:       
+        return json.dumps({"value": "\n".join(t[:50])}, indent=5)
 
 def nb_uncomplete():
     d = json.load(open("missing.json","r"))
@@ -129,5 +127,6 @@ def dl(req:str):
 
 
 if __name__=="__main__":
+    print(serv_log())
     # print(find_file_movie(680,"pulp fiction"))
-    print(dl("http://127.0.0.1:8080/dl/?is_show=false&q=767:Harry%20Potter%20and%20the%20Half-Blood%20Prince+674:Harry%20Potter%20and%20the%20Goblet%20of%20Fire"))
+    # print(dl("http://127.0.0.1:8080/dl/?is_show=false&q=767:Harry%20Potter%20and%20the%20Half-Blood%20Prince+674:Harry%20Potter%20and%20the%20Goblet%20of%20Fire"))
