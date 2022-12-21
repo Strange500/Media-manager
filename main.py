@@ -1,11 +1,16 @@
 import os,time,subprocess
-from datetime import datetime
 from file_analyse_lib import *
 
 
 def main():
+    print(f"[{time_log()}] MAIN: SERVER STARTED")
+    subprocess.run("start python API.py",shell=True)
+    print(f"[{time_log()}] MAIN: API STARTED")
     minute=time.time()//60
-    h=datetime.now().strftime('%H')
+    date=datetime.datetime.now()
+    h=date.strftime("%H")
+    
+    print(f"[{time_log()}] MAIN: WAITING FOR EVENTS")
     while True:
         if minute!=time.time()//60:
             minute=time.time()//60
@@ -13,17 +18,24 @@ def main():
             for dir in download_dir:
                 if os.listdir(dir)!=[]:
                     subprocess.Popen("python sorter.py")
-        if datetime.now().strftime('%H')=="04":
+        if date.strftime('%H')=="04":
+            t = subprocess.Popen("python check_integrity.py")
+            t.wait()
+            t = subprocess.Popen("python fakedatabase.py")
+            t.wait()
+            t = subprocess.Popen("python theme.py")
+            t.wait()
             os.system("shutdown /r")
-        if datetime.now().strftime('%H')=="20" and datetime.now().strftime('%H')!=h:
-            h=datetime.now().strftime('%H')
-            subprocess.Popen("python check_integrity.py")
             break
+        
+            
+
+
+
 
 
 
 
 
 if __name__=='__main__':
-    print("SERVER STARTING...")
     main()

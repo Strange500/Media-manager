@@ -5,14 +5,15 @@ from types import NoneType
 from pymediainfo import MediaInfo
 from types import NoneType
 import tmdbsimple as tmdb
-tmdb.API_KEY ="TMDB_API_KEY"
+tmdb.API_KEY ="91d34b37526d54cfd3d6fcc5c50d0b31"
 tmdb.REQUESTS_TIMEOUT = 5  # seconds, for both connect and read
+
+import datetime
 ###CLASS###
 class Anime():
     """Provide a view on the anime"""
 
-    def __init__(self,title:str) -> None:
-        
+    def __init__(self,title) -> None:
         search= tmdb.Search()
         os.makedirs("anime_database",exist_ok=True)
 
@@ -78,12 +79,9 @@ class Anime():
 
     def __str__(self) -> str:
         return f"{self.title} : {self.number_of_season} seasons"
-
 class Episode:
-    """Gives main property of a video"""
 
     def is_vostfr(self)->bool:
-        """check if episode is vostfr based on metadata"""
         tracks=self.tracks()
         return "fr" in tracks["subs"] and "ja" in tracks["audio"]
 
@@ -99,15 +97,20 @@ class Episode:
             
 
     def tracks(self):
-        """return dict containing subs and audio tracks"""
-        media_info,tracks_list_subs,tracks_list_audio = self.media_info,[],[]
+        media_info = self.media_info
+        tracks_list_subs=[]
+        tracks_list_audio=[]
         for track in media_info.tracks:
+            
             if track.track_type == "Audio":
                 try:
                     tracks_list_audio.append(track.to_data()["language"])
                 except KeyError:
                     tracks_list_audio.append("ja")
+
+        
             if track.track_type == "Text":
+
                 try:
                     tracks_list_subs.append(track.to_data()["language"])
                 except KeyError:
@@ -119,38 +122,44 @@ class Episode:
                                 tracks_list_subs.append("fr")
                         except:
                             pass
+
             if track.track_type == "Menu":
+
                 try:
                     tracks_list_subs.append(track.to_data()["language"])
                 except KeyError:
                     pass
+
+
+
+
         return {"subs":tracks_list_subs,"audio":tracks_list_audio}
 
     def extension(self):
-        """return file extension between mp4 and Mkv else NC"""
         if ".mp4" in self.path:
             return "mp4"
         elif ".mkv" in self.path:
             return "mkv"
-        return "NC"
 
-    def __init__(self,path:str) -> None:
+
+    def __init__(self,path) -> None:
         self.path=path
         self.media_info=MediaInfo.parse(self.path)
 
+
+
     def __repr__(self) -> str:
+        
         return self.path
 
     def info(self):
-        return {
+        dic={
             "path":self.path
             ,"track":self.track,
             "extension":self.ext,
             "codec":self.codec}
-
+        return dic
 class LightFile():
-    """
-    """
 
     def title(self):
         """return the title of a video"""
@@ -260,7 +269,6 @@ class LightFile():
             while file[0] in [str(i) for i in range(0,10)]:
                 file=file[1:]
         except:
-            print("error",file)
             pass
         ls=isolate_numbers(file)
         if len(ls)==1:
@@ -280,6 +288,10 @@ class LightFile():
                 return f"{int(elt):02}"
         
         return "01"
+    def __str__(self) -> str:
+        return f"{self.title()} - S{self.season}E{self.ep} - .mkv"
+
+
 class File():
     def determine_source(self)->str:
         """return the source of a video from it's file name"""
@@ -320,7 +332,6 @@ class File():
             while file[0] in [str(i) for i in range(0,10)]:
                 file=file[1:]
         except:
-            print("error",file)
             pass
         # while temp_file!="": #isolate all number in file_name then associate number with season
         #     nb=""
@@ -466,7 +477,7 @@ class File():
     
     def determine_title(self)->str:
         """return the title of a video"""
-        file=self.file_name
+        file=self.file_name.replace("."," ",-2)
         for banned_car in [("[","]"),("{","}"),("(",")")]:
             car1,car2=banned_car
             file=car_to_car(file,car1,car2)
@@ -749,7 +760,10 @@ if "select_words.txt" not in os.listdir():
     open("select_words.txt","w")
 if "already_download.txt" not in os.listdir():
     open("already_download.txt","w")
-
+if "judas_not_vostfr.txt" not in os.listdir():
+    open("judas_not_vostfr.txt","w")
+if "judas_vostfr.txt" not in os.listdir():
+    open("judas_vostfr.txt","w")
 
 def car_to_car(string:str,car1:str,car2:str)->str:
     """return str without car between two character"""
@@ -757,10 +771,10 @@ def car_to_car(string:str,car1:str,car2:str)->str:
         while car1 in string or car2 in string:
             new_str=""
 
-            while string[0]!=car1:
+            while string[0]!=car1 and car1 in string:
                 new_str=new_str+string[0]
                 string=string[1:]
-            while string[0]!=car2:
+            while string[0]!=car2 and car2 in string:
                 string=string[1:]
             string=string[1:]
             string=new_str+string
@@ -816,6 +830,8 @@ def title_to_romaji(title):
         return title
     except UnicodeEncodeError:
         return title
+    except requests.exceptions.HTTPError : 
+        return title
     return tt
 
 def mise_en_cache(file:str,string:str)->None:
@@ -834,9 +850,22 @@ def get_anime()->None:
         for file in os.listdir(dir):
             if "MOVIE" not in file and ("mp4" in file or "mkv" in file):
                 if "E:" in dir:
-                    shutil.move(f'{dir}/{file}',sorter_dir[1])
+                    try:
+                        shutil.move(f'{dir}/{file}',sorter_dir[0])
+                    except shutil.Error:
+                        os.remove(f"{sorter_dir[1]}/{file}")
+                        shutil.move(f'{dir}/{file}',sorter_dir[0])
+                    except OSError:
+                        shutil.move(f'{dir}/{file}',sorter_dir[1])
                 else:
-                    shutil.move(f'{dir}/{file}',sorter_dir[0])
+                    try:
+                        shutil.move(f'{dir}/{file}',sorter_dir[1])
+                    except shutil.Error:
+                        os.remove(f"{sorter_dir[0]}/{file}")
+                        shutil.move(f'{dir}/{file}',sorter_dir[1])
+                    except OSError:
+                        shutil.move(f'{dir}/{file}',sorter_dir[0])
+
 
 
 def list_season(dir):
@@ -854,14 +883,15 @@ def list_season(dir):
              
 
 
-# def test_mode():
+def test_mode():
 #     ls=open("test.txt","r",encoding="utf-8").read().split("\n")
 #     # #print(File("[Tsundere-Raws] DanMachi S4 - 06 [WEB 1080p x264 AAC].mp4").season)
 #     for file in  ls:
 #     # for file in os.listdir():
 #     # print(File("[Pikari-Teshima] Shokei Shôjo no Virgin Road 12 VOSTFR [Web-Rip 1080p AAC].mkv"))
 #         # if "mkv" in file or "mp4" in file:
-#             test=File(file)
+            test=File("Blue.Exorcist.S02E01.VOSTFR.FHD.1080p.x264-LIGHTNING.mkv")
+            print(test)
             
 #             # print(test.file_name)
 #             print(title_to_romaji(test.title))
@@ -947,7 +977,7 @@ def merge(folder1,folder2):
 
 def list_anime():
     """liste les different anime ainsi que les dossier correspondant"""
-    print("Scanning anime please wait...")
+    log(f"[{time_log()}] DATABASE: SCANNING LIBRARY")
     dic={}
     for dir in anime_dir:
         for file in os.listdir(dir):
@@ -1045,16 +1075,20 @@ def find_anime_dir(anime:str):
         for file in os.listdir(dir):
             if anime==title_to_romaji(file):
                 return f"{dir}/{file}"
+    return "no dir"
 
 
 
 
-def get_source(anime):
+def get_source(anime:str):
     """return sources if in file name else return None"""
     if "/"  not in anime or "\\" not in anime:
         dir,r=find_anime_dir(anime),None
+        if dir == "no dir":
+            return 
     else:
         dir=anime
+    print(dir)
     for file in os.listdir(dir):
         if os.path.isdir(f"{dir}/{file}") and "Season " in file:
             return get_source(f"{dir}/{file}")
@@ -1076,8 +1110,7 @@ def store_nyaa(result:dict):
     json.dump(database,open("nyaa.json","w"),indent=4)
 
 
-def find_anime_id(title:str)->str:
-    """Return the id of the anime based on the title"""
+def find_anime_id(title):
     anime_id=json.load(open("anime_id.json",'r'))
     anime=title_to_romaji(title)
     
@@ -1109,13 +1142,11 @@ def prepare_url(search):
     return f"{search}+{ban}+{sel}"
 
 def database_check():
-    print("Checking database integrity (missing ep)")
     dic=json.load(open("anime_lib.json","r"))
     missing={}
     for keys in dic:
         ls=[]
         
-        print(f"checking {keys}...")
         anime=Anime(keys)
         
         for nb in range(1,anime.number_of_season+1):
@@ -1123,7 +1154,10 @@ def database_check():
                 os.makedirs(f"{dir}/Season {nb:02}",exist_ok=True)
             
             #checking season and all ep
-            season_info=tmdb.TV_Seasons((anime.tmbd.id),nb).info()
+            try:
+                season_info=tmdb.TV_Seasons((anime.tmbd.id),nb).info()
+            except requests.exceptions.HTTPError:
+                break
             if nb == anime.number_of_season:
                 try:
                     last_ep=tmdb.TV(find_anime_id(keys)).info()["last_episode_to_air"]["episode_number"]
@@ -1133,6 +1167,8 @@ def database_check():
                 except requests.exceptions.JSONDecodeError:
                     break
                 except json.decoder.JSONDecodeError:
+                    break
+                except requests.exceptions.HTTPError:
                     break
             else:
                 season_ep=tmdb.TV_Seasons((anime.tmbd.id),nb).info()["episodes"]
@@ -1151,8 +1187,10 @@ def database_check():
                         pass
                     else:
                         ls.append(f"S{nb:02}E{epi}")
-        print(f"Missing ep are: "+",".join(ls))
-        missing[anime.title]=ls
+        if ls != []:
+            log(f"[{time_log()}] DATABASE: (WARNING) {anime.title} episode missing")
+            print(f"Missing ep are: "+",".join(ls))
+            missing[anime.title]=ls
         
     json.dump(missing,open("missing.json","w"),indent=4)
 
@@ -1180,7 +1218,7 @@ def search_ep(anime:str,season:str,ep_number:list):
     check,file=check_nyaa_database(anime,season,ep_number)
     if check!=None:
         download_torrent(check,file_name=file)
-        print(f"{file}.torrent downloaded via nyaa.json")
+        log(f"[{time_log()}] DATABASE: {file} downloaded via nyaa.json")
         return
     elif ep_number==[]:
         return
@@ -1205,12 +1243,12 @@ def search_ep(anime:str,season:str,ep_number:list):
                     if file.title==title_to_romaji(anime["title"]) and  file.season==season:
                         download_torrent(r.ep[keys],file_name=keys)
 
-                        print(f"{keys}.torrent downloaded via nyaa.si")
+                        log(f"[{time_log()}] DATABASE: {keys} downloaded via nyaa.si")
                         
                 elif ep_number != [] and file.title==title_to_romaji(anime["title"]) and file.episode in ep_number and file.season==season:
                     download_torrent(r.ep[keys],file_name=keys)
                     ep_number.pop(ep_number.index(file.episode))
-                    print(f"{keys}.torrent downloaded via nyaa.si")
+                    log(f"[{time_log()}] DATABASE: {keys} downloaded via nyaa.si")
         if ep_number!=[]:
             for source in sources:
                 if season=="01":
@@ -1225,16 +1263,15 @@ def search_ep(anime:str,season:str,ep_number:list):
                     if ep_number != [] and file.title==title_to_romaji(anime["title"]) and file.episode in ep_number and file.season==season:
                         download_torrent(r.ep[keys],file_name=keys)
                         ep_number.pop(ep_number.index(file.episode))
-                        print(f"{keys}.torrent downloaded via nyaa.si")
+                        log(f"[{time_log()}] DATABASE: {keys} downloaded via nyaa.si")
 
 
 def download_missing_ep(missing:dict):
-    print("Downloading missing episodes")
+    log(f"[{time_log()}] DATABASE: Searching missing episode")
     for keys in missing.keys():
         if len(missing[keys])>24:
             pass
         else:
-            print(f"Searching {keys} ...")
             dic={}
             # print(keys,missing[keys])
             for ep in missing[keys]:
@@ -1246,7 +1283,58 @@ def download_missing_ep(missing:dict):
                     dic[ep.split("S")[-1].split("E")[0]].append(ep.split("S")[-1].split("E")[-1])
             for season in dic:
                 # print(f"Missing ep for S{season} are : "+",".join(["S"+season+"E"+i for i in dic[season]]))
-                search_ep(keys,season,dic[season])
+                try:
+                    search_ep(keys,season,dic[season])
+                except IndexError as e:
+                    pass
+
+def time_log():
+    # Get the current time
+    current_time = datetime.datetime.now()
+    datetime.datetime.now().strftime("%H")
+
+    # Format the time as a string with the hour, minute, and second
+    return current_time.strftime("%H:%M:%S")
+
+def already_in_folder(file:str,dir:list | None | str = None ):
+    if dir == None:
+        t = title_to_romaji(File(file).title)
+        ls_lib = json.load(open("anime_lib.json","r"))
+        try:
+            dir = [ls_lib[anime] for anime in ls_lib if t == anime][-1]
+        except IndexError:
+            return []
+    ls=[]
+    try:
+        ep=file.split(" - ")[1]
+    except: return []
+    if type(dir) == list:
+        for dirs in dir:
+            for episode in os.listdir(dirs):
+                if os.path.isdir(f"{dirs}/{episode}"):
+                    for file in os.listdir(f"{dirs}/{episode}"):
+                        try:
+                            if ep==file.split(" - ")[1]:
+                                ls.append(f"{dirs}/{episode}/{file}")
+                        except:
+                            pass
+
+                try:
+                    if ep==episode.split(" - ")[1]:
+                        ls.append(f"{dir}/{episode}")
+                except:
+                    pass
+    elif type(dir) == str:
+        for file in os.listdir(dir):
+            print(file)
+            try:
+                if ep==file.split(" - ")[1]:
+                    ls.append(f"{dir}/{file}")
+            except:
+                pass
+
+   
+    return ls
 
 if __name__=='__main__':
-    pass
+    test_mode()
