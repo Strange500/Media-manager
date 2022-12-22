@@ -1,5 +1,4 @@
 from copy import deepcopy
-from genericpath import isdir
 import os,shutil,feedparser,json,requests,time,random
 from types import NoneType
 from pymediainfo import MediaInfo

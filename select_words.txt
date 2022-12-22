@@ -1,4 +1,0 @@
-one select word per line ex:
-720
-VF
-ENG
