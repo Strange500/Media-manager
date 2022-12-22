@@ -844,6 +844,15 @@ def log(to_log:str)->None:
     if type(to_log)==str:
         open("log.txt","a",encoding="utf-8").write(to_log+"\n")
 
+def extract(dir):
+    if "/" in dir:
+        parent_dir="/".join(dir.split("/")[:-1])
+    elif "\\" in dir:
+        parent_dir="\\".join(dir.split("\\")[:-1])
+    for file in os.listdir(dir):
+        shutil.move(f'{dir}/{file}',parent_dir)
+    shutil.rmtree(dir)
+
 def get_anime()->None:
     ### remplacer anilist par imdb ####
     for dir in download_dir:
@@ -865,6 +874,8 @@ def get_anime()->None:
                         shutil.move(f'{dir}/{file}',sorter_dir[1])
                     except OSError:
                         shutil.move(f'{dir}/{file}',sorter_dir[0])
+            elif os.path.isdir(f'{dir}/{file}'):
+                extract(f'{dir}/{file}')
 
 
 
@@ -1303,11 +1314,17 @@ def already_in_folder(file:str,dir:list | None | str = None ):
         try:
             dir = [ls_lib[anime] for anime in ls_lib if t == anime][-1]
         except IndexError:
-            return []
+            print("here")
+            os.makedirs(f"{anime_dir[0]}/{LightFile(file).title}")
+            json.dump(list_anime(),open("anime_lib.json","w"))
+
+            return already_in_folder(file, dir)
     ls=[]
     try:
         ep=file.split(" - ")[1]
-    except: return []
+    except:
+        ep = LightFile(file)
+        ep = ep.__str__().split(" - ")[1]
     if type(dir) == list:
         for dirs in dir:
             for episode in os.listdir(dirs):
