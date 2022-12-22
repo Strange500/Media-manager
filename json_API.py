@@ -1,21 +1,23 @@
 import json
 import os
 import shutil
-import urllib.parse
-import tmdbsimple as tmdb
-
-import wmi,requests,random
-from bs4 import BeautifulSoup as bs
 import time
-from pprint import pprint
+import urllib.parse
+
+import random
+import requests
+import tmdbsimple as tmdb
+import wmi
+from bs4 import BeautifulSoup as bs
+
 user_list = ["admin", "Lester", "La mom", "Apo", "Antoine", "DrazZ"]
 
-tmdb.API_KEY ="91d34b37526d54cfd3d6fcc5c50d0b31"
+tmdb.API_KEY = "91d34b37526d54cfd3d6fcc5c50d0b31"
 tmdb.REQUESTS_TIMEOUT = 5  # seconds, for both connect and read
 
-def get_page(url:str):
-    return requests.get(url).content
 
+def get_page(url: str):
+    return requests.get(url).content
 
 
 def alive() -> json:
@@ -61,47 +63,51 @@ def cpu_temp():
 
 
 def serv_log():
-    text,n = "",0
-    t = open("log.txt","r",encoding="utf-8").read().split("\n")[::-1]
-    if len(t)<50:
+    text, n = "", 0
+    t = open("log.txt", "r", encoding="utf-8").read().split("\n")[::-1]
+    if len(t) < 50:
         return json.dumps({"value": "\n".join(t)}, indent=5)
-    else:       
+    else:
         return json.dumps({"value": "\n".join(t[:50])}, indent=5)
 
+
 def nb_uncomplete():
-    d = json.load(open("missing.json","r"))
-    d = [elt for elt in d if d[elt] == [] ]
+    d = json.load(open("missing.json", "r"))
+    d = [elt for elt in d if d[elt] == []]
     return len(d)
 
 
 def stat_show():
-    dic={}
-    dic["nb_show"] = len(json.load(open("anime_lib.json","r")))
-    dic["uncomplete"] = round(nb_uncomplete() / dic["nb_show"],2)*100
+    dic = {}
+    dic["nb_show"] = len(json.load(open("anime_lib.json", "r")))
+    dic["uncomplete"] = round(nb_uncomplete() / dic["nb_show"], 2) * 100
 
-    return json.dumps(dic,indent=5)
+    return json.dumps(dic, indent=5)
 
-def find_show_file(id,search):
+
+def find_show_file(id, search):
     pass
-def find_file_movie(id,search):
+
+
+def find_file_movie(id, search):
     # YFI on thepiratebay
-    search = search.replace(" ","%20")
-    scrap = bs(get_page(f"https://yts.rs/browse-movies/{search}/all/all/0/latest"),"html.parser")
-    elt = scrap.find_all("a",class_="title")
+    search = search.replace(" ", "%20")
+    scrap = bs(get_page(f"https://yts.rs/browse-movies/{search}/all/all/0/latest"), "html.parser")
+    elt = scrap.find_all("a", class_="title")
     for title in elt:
         s = tmdb.Search()
         id_test = s.movie(query=title.text)
         id_test = s.results[0]['id']
         if id_test == id:
-
             scrap = bs(get_page("https://yts.rs" + title["href"]), "html.parser")
-            elt = scrap.find_all("a",class_="download-torrent")
+            elt = scrap.find_all("a", class_="download-torrent")
             ls = [i["href"] for i in elt if "1080" in i["title"] and "magnet" in i["href"]]
             return ls[0]
-    
+
     return "nothing found"
 
-def dl(req:str):
+
+def dl(req: str):
     try:
         req = req.split("?")[-1].split("&")
         is_show = req[0].split("=")[-1]
@@ -113,20 +119,18 @@ def dl(req:str):
         else:
             print(list_id)
             for id in list_id:
-                
                 url = find_file_movie(int(id[0]), id[1])
-                os.makedirs("torrent",exist_ok=True)
-                open(f"torrent/{str(random.randint(500,500000))}.magnet","w").write(url)
-                time.sleep(1) # avoid ban ip
+                os.makedirs("torrent", exist_ok=True)
+                open(f"torrent/{str(random.randint(500, 500000))}.magnet", "w").write(url)
+                time.sleep(1)  # avoid ban ip
             print("done")
-            return json.dumps({"statut" : "sucess"},indent=5)
+            return json.dumps({"statut": "sucess"}, indent=5)
 
     except:
-        return json.dumps({"statut" : "error"},indent=5)
-        
+        return json.dumps({"statut": "error"}, indent=5)
 
 
-if __name__=="__main__":
+if __name__ == "__main__":
     print(serv_log())
     # print(find_file_movie(680,"pulp fiction"))
     # print(dl("http://127.0.0.1:8080/dl/?is_show=false&q=767:Harry%20Potter%20and%20the%20Half-Blood%20Prince+674:Harry%20Potter%20and%20the%20Goblet%20of%20Fire"))
