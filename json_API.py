@@ -14,6 +14,7 @@ user_list = ["admin", "Lester", "La mom", "Apo", "Antoine", "DrazZ"]
 
 tmdb.API_KEY = "91d34b37526d54cfd3d6fcc5c50d0b31"
 tmdb.REQUESTS_TIMEOUT = 5  # seconds, for both connect and read
+tixai_url = "http://82.65.222.143:8888"
 
 
 def get_page(url: str):
@@ -133,7 +134,69 @@ def dl(req: str):
         return json.dumps({"statut": "error"}, indent=5)
 
 
+def downloading():
+    # scrap tixati
+    scrap = bs(get_page(f"{tixai_url}/transfers"), "html.parser")
+    current = scrap.find_all("tr",class_="downloading")
+    dic = {"files" : []}
+    for elt in current:
+        title = elt.find("a").text
+        size = elt.find_all("td")[3].text
+        percent = elt.find_all("td")[4].text
+        speed = elt.find_all("td")[6].text
+        url = f" {tixai_url}{elt.find('a')['href']}"
+        dic["files"].append({"title" : title,
+                            "size" : size,
+                            "percent" : percent,
+                            "speed" : speed,
+                            "url" : url})
+    return json.dumps(dic, indent=5)
+
+def complete():
+    # scrap tixati
+    scrap = bs(get_page(f"{tixai_url}/transfers"), "html.parser")
+    current = scrap.find_all("tr",class_="complete")
+    dic = {"files" : []}
+    for elt in current:
+        title = elt.find("a").text
+        size = elt.find_all("td")[3].text
+        percent = elt.find_all("td")[4].text
+        speed = elt.find_all("td")[6].text
+        url = f" {tixai_url}{elt.find('a')['href']}"
+        dic["files"].append({"title" : title,
+                            "size" : size,
+                            "url" : url})
+    return json.dumps(dic, indent=5)
+
+def stop_dl(url):
+    try:
+        requests.post(url,{
+                "stop" : "stop"
+            })
+    except: 
+        return json.dumps({"statut": "error"}, indent=5)
+def rm_dl(url):
+    try:
+        requests.post(url,{
+                "remove" : "Remove"
+            })
+    except:
+        return json.dumps({"statut": "error"}, indent=5)
+def st_dl(url):
+    try:
+        requests.post(url,{
+                "start" : "Start"
+            })
+    except:
+        return json.dumps({"statut": "error"}, indent=5)
+
 if __name__ == "__main__":
-    print(serv_log())
+    requests.post(tixai_url+"/transfers/23ddb96c16454692/details/action",
+    data={
+        "start" : "Start"
+    })
+    print(complete())
+
+    # print(serv_log())
     # print(find_file_movie(680,"pulp fiction"))
     # print(dl("http://127.0.0.1:8080/dl/?is_show=false&q=767:Harry%20Potter%20and%20the%20Half-Blood%20Prince+674:Harry%20Potter%20and%20the%20Goblet%20of%20Fire"))
