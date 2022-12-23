@@ -22,7 +22,7 @@ def main():
                 r = requests.request("GET", feed.ep[episode])
                 open(f"torrent/{forbiden_car(episode)}.torrent", "wb").write(r.content)
                 print(f"{episode} downloaded")
-                log(f"[{time_log()} DOWNLOADER: {episode} ADDED")
+                log(f"[{time_log()}] DOWNLOADER: {episode} ADDED")
 
 
 if __name__ == "__main__":

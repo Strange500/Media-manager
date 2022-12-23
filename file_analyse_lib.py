@@ -872,6 +872,15 @@ def mise_en_cache(file: str, string: str) -> None:
     open(file, "ab").write(bytes(string, encoding="utf-8"))
 
 
+def extract(dir):
+    if "/" in dir:
+        parent_dir="/".join(dir.split("/")[:-1])
+    elif "\\" in dir:
+        parent_dir="\\".join(dir.split("\\")[:-1])
+    for file in os.listdir(dir):
+        shutil.move(f'{dir}/{file}',parent_dir)
+    shutil.rmtree(dir)
+
 def check_cache(file) -> str:
     open(file, "r", encoding="utf-8").read()
 
@@ -901,7 +910,10 @@ def get_anime() -> None:
                         os.remove(f"{sorter_dir[0]}/{file}")
                         shutil.move(f'{dir}/{file}', sorter_dir[1])
                     except OSError:
-                        shutil.move(f'{dir}/{file}', sorter_dir[0])
+                        shutil.move(f'{dir}/{file}',sorter_dir[0])
+            elif os.path.isdir(f'{dir}/{file}'):
+                extract(f'{dir}/{file}')
+
 
 
 def list_season(dir):
@@ -1351,12 +1363,17 @@ def already_in_folder(file: str, dir: list | None | str = None):
         try:
             dir = [ls_lib[anime] for anime in ls_lib if t == anime][-1]
         except IndexError:
-            return []
-    ls = []
+            print("here")
+            os.makedirs(f"{anime_dir[0]}/{LightFile(file).title}")
+            json.dump(list_anime(),open("anime_lib.json","w"))
+
+            return already_in_folder(file, dir)
+    ls=[]
     try:
-        ep = file.split(" - ")[1]
+        ep=file.split(" - ")[1]
     except:
-        return []
+        ep = LightFile(file)
+        ep = ep.__str__().split(" - ")[1]
     if type(dir) == list:
         for dirs in dir:
             for episode in os.listdir(dirs):

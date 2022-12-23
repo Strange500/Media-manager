@@ -17,7 +17,7 @@ def main():
                 os.makedirs(f"{move_dir}/{title}/Season {sorting.season}", exist_ok=True)
                 for file_dup in already_in_folder(file):
                     os.remove(file_dup)
-                    log(f"[{time_log}] DATABASE: {file_dup} REMOVED (duplicate)")
+                    log(f"[{time_log()}] DATABASE: {file_dup} REMOVED (duplicate)")
                 try:
                     pass
                     shutil.move(f"{dir}/{file}",
@@ -33,6 +33,9 @@ def main():
                     logs = f"[{time_log()}] SORTER: {file} ---> {sorting.__str__()}"
                     log(logs)
                     print(logs)
+                
+            elif os.path.isdir(f"{dir}/{file}"):
+                extract(f"{dir}/{file}")
 
 
 if __name__ == '__main__':
