@@ -25,7 +25,8 @@ class myHandler(CGIHTTPRequestHandler):
                 "/restart": lambda: self.comfirm_request() or self.wfile.write(bytes(restart(), encoding="utf-8")),
                 "/cpu_temp": lambda: self.comfirm_request() or self.wfile.write(bytes(cpu_temp(), encoding="utf-8")),
                 "/log": lambda: self.comfirm_request() or self.wfile.write(bytes(serv_log(), encoding="utf-8")),
-                "/stats_lib": lambda: self.comfirm_request() or self.wfile.write(bytes(stat_show(), encoding="utf-8"))
+                "/stats_lib": lambda: self.comfirm_request() or self.wfile.write(bytes(stat_show(), encoding="utf-8")),
+                "/check_dl": lambda: self.comfirm_request() or self.wfile.write(bytes(downloading(), encoding="utf-8"))
 
             }
             try:
@@ -38,7 +39,13 @@ class myHandler(CGIHTTPRequestHandler):
                 "/is_user": lambda: self.comfirm_request() or self.wfile.write(
                     bytes(is_user(self.path), encoding="utf-8")),
                 "/dl": lambda: self.comfirm_request() or self.wfile.write(
-                    bytes(dl(self.path), encoding="utf-8"))
+                    bytes(dl(self.path), encoding="utf-8")),
+                "/stop_dl" : lambda: self.comfirm_request() or self.wfile.write(
+                    bytes(stop_dl(self.path), encoding="utf-8")),
+                "/st_dl": lambda: self.comfirm_request() or self.wfile.write(
+                    bytes(st_dl(self.path), encoding="utf-8")),
+                "/rm_dl": lambda: self.comfirm_request() or self.wfile.write(
+                    bytes(rm_dl(self.path), encoding="utf-8")),
             }
             try:
                 print("/" + self.path.split("/")[1])
