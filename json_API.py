@@ -91,6 +91,9 @@ def find_show_file(id, search):
 
 def find_file_movie(id, search):
     # YFI on thepiratebay
+    #1334x RARBG
+    
+
     search = search.replace(" ", "%20")
     scrap = bs(get_page(f"https://yts.rs/browse-movies/{search}/all/all/0/latest"), "html.parser")
     elt = scrap.find_all("a", class_="title")
