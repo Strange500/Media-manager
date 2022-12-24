@@ -9,12 +9,13 @@ import requests
 import tmdbsimple as tmdb
 import wmi
 from bs4 import BeautifulSoup as bs
+from file_analyse_lib import LightFile
 
 user_list = ["admin", "Lester", "La mom", "Apo", "Antoine", "DrazZ"]
 
 tmdb.API_KEY = "91d34b37526d54cfd3d6fcc5c50d0b31"
 tmdb.REQUESTS_TIMEOUT = 5  # seconds, for both connect and read
-tixai_url = "http://82.65.222.143:8888"
+tixai_url = "http://127.0.0.1:8888"
 
 
 def get_page(url: str):
@@ -74,7 +75,6 @@ def serv_log():
 
 def nb_uncomplete():
     d = json.load(open("missing.json", "r"))
-    d = [elt for elt in d if d[elt] == []]
     return len(d)
 
 
@@ -140,11 +140,12 @@ def downloading():
     current = scrap.find_all("tr",class_="downloading")
     dic = {"files" : []}
     for elt in current:
-        title = elt.find("a").text
+        el = LightFile(elt.find("a").text)
+        title = f"{el.title()} S{el.season}E{el.ep}"
         size = elt.find_all("td")[3].text
         percent = elt.find_all("td")[4].text
         speed = elt.find_all("td")[6].text
-        url = f" {tixai_url}{elt.find('a')['href']}"
+        url = f"{tixai_url}{elt.find('a')['href']}"
         dic["files"].append({"title" : title,
                             "size" : size,
                             "percent" : percent,
@@ -168,32 +169,49 @@ def complete():
                             "url" : url})
     return json.dumps(dic, indent=5)
 
+def det_var(url:str):
+    url, dic = url.split("?")[-1], {}
+    url = url.split("=")
+    var = [i for i in url if url.index(i) % 2 == 0]
+    values = [i for i in url if url.index(i) % 2 != 0]
+    for name, value in zip(var, values):
+        dic[name] = value
+    return dic
+
+
 def stop_dl(url):
+    url = det_var(url)["url"]
     try:
-        requests.post(url,{
-                "stop" : "stop"
+        requests.post(f"{url}/action",data={
+                "stop" : "Stop"
             })
     except: 
         return json.dumps({"statut": "error"}, indent=5)
 def rm_dl(url):
+    url = det_var(url)["url"]
     try:
-        requests.post(url,{
+        requests.post(f"{url}/action",data={
                 "remove" : "Remove"
             })
     except:
         return json.dumps({"statut": "error"}, indent=5)
 def st_dl(url):
+    url = det_var(url)["url"]
     try:
-        requests.post(url,{
+        requests.post(f"{url}/action",data={
                 "start" : "Start"
             })
     except:
         return json.dumps({"statut": "error"}, indent=5)
 
 if __name__ == "__main__":
-    
+    # requests.post(tixai_url+"/transfers/23ddb96c16454692/details/action",
+    # data={
+    #     "start" : "Start"
+    # })
+    # print(complete())
     print(downloading())
-
+    print(st_dl("http://82.65.222.143:8080/stop_dl/?url=http://82.65.222.143:8888/transfers/b460be16f994e933/details"))
     # print(serv_log())
     # print(find_file_movie(680,"pulp fiction"))
     # print(dl("http://127.0.0.1:8080/dl/?is_show=false&q=767:Harry%20Potter%20and%20the%20Half-Blood%20Prince+674:Harry%20Potter%20and%20the%20Goblet%20of%20Fire"))

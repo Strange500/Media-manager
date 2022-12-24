@@ -13,6 +13,8 @@ def main():
 
     print(f"[{time_log()}] MAIN: WAITING FOR EVENTS")
     while True:
+        date = datetime.datetime.now()
+
         if minute != time.time() // 60:
             minute = time.time() // 60
             subprocess.Popen("python downloader.py", shell=True)
@@ -32,3 +34,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

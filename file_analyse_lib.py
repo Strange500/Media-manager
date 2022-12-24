@@ -899,7 +899,11 @@ def get_anime() -> None:
                     try:
                         shutil.move(f'{dir}/{file}', sorter_dir[0])
                     except shutil.Error:
-                        os.remove(f"{sorter_dir[1]}/{file}")
+                        try:
+                            os.remove(f"{sorter_dir[1]}/{file}")
+                        except FileNotFoundError:
+                            os.remove(f"{sorter_dir[0]}/{file}")
+
                         shutil.move(f'{dir}/{file}', sorter_dir[0])
                     except OSError:
                         shutil.move(f'{dir}/{file}', sorter_dir[1])
@@ -1364,7 +1368,7 @@ def already_in_folder(file: str, dir: list | None | str = None):
             dir = [ls_lib[anime] for anime in ls_lib if t == anime][-1]
         except IndexError:
             print("here")
-            os.makedirs(f"{anime_dir[0]}/{LightFile(file).title}")
+            os.makedirs(forbiden_car(f"{anime_dir[0]}/{LightFile(file).title()}"),exist_ok=True)
             json.dump(list_anime(),open("anime_lib.json","w"))
 
             return already_in_folder(file, dir)
