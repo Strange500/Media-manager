@@ -191,11 +191,8 @@ def st_dl(url):
         return json.dumps({"statut": "error"}, indent=5)
 
 if __name__ == "__main__":
-    requests.post(tixai_url+"/transfers/23ddb96c16454692/details/action",
-    data={
-        "start" : "Start"
-    })
-    print(complete())
+    
+    print(downloading())
 
     # print(serv_log())
     # print(find_file_movie(680,"pulp fiction"))
