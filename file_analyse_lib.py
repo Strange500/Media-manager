@@ -1369,9 +1369,8 @@ def already_in_folder(file: str, dir: list | None | str = None):
         except IndexError:
             print("here")
             os.makedirs(forbiden_car(f"{anime_dir[0]}/{LightFile(file).title()}"),exist_ok=True)
-            json.dump(list_anime(),open("anime_lib.json","w"))
 
-            return already_in_folder(file, dir)
+            return []
     ls=[]
     try:
         ep=file.split(" - ")[1]
