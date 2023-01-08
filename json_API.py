@@ -108,10 +108,11 @@ def find_file_movie(id, search):
             ls = [i["href"] for i in elt if "1080" in i["title"] and "magnet" in i["href"]]
             return ls[0]
 
-    return "nothing found"
+    return 
 
 
 def dl(req: str):
+    r = json.dumps({"statut": "sucess"}, indent=5)
     try:
         req = req.split("?")[-1].split("&")
         is_show = req[0].split("=")[-1]
@@ -124,11 +125,16 @@ def dl(req: str):
             print(list_id)
             for id in list_id:
                 url = find_file_movie(int(id[0]), id[1])
-                os.makedirs("torrent", exist_ok=True)
-                open(f"torrent/{str(random.randint(500, 500000))}.magnet", "w").write(url)
-                time.sleep(1)  # avoid ban ip
-            print("done")
-            return json.dumps({"statut": "sucess"}, indent=5)
+                if type(url) == str:
+                    os.makedirs("torrent", exist_ok=True)
+                    open(f"torrent/{str(random.randint(500, 500000))}.magnet", "w").write(url)
+                    time.sleep(1)  # avoid ban ip
+                    
+                else:
+                    r = json.dumps({"statut": "error"}, indent=5)
+                
+            
+            return r
 
     except:
         return json.dumps({"statut": "error"}, indent=5)
