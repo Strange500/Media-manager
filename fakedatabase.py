@@ -226,10 +226,10 @@ def main() -> None:
                                         judas_download_ep(f"{dir}/{file}", temp_dir)
                                         shutil.move(f"{temp_dir}/{file}", download_dir[1])
                                         print(f"{file} downloaded")
-                                        log(f"[{time_log()}] JUDAS: {file} downloaded")
+                                        log(f"JUDAS: {file} downloaded")
                                         liste_ep.append(file_name.split(" - ")[1])
                                     except OSError:
-                                        log(f"[{time_log()}] JUDAS : (WARNING) An error occured for {file}")
+                                        log(f"JUDAS : (WARNING) An error occured for {file}")
 
 
 def test():

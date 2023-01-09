@@ -21,8 +21,8 @@ def main():
                 open("already_download.txt", "a", encoding="utf-8").write(f'{file_name}\n')
                 r = requests.request("GET", feed.ep[episode])
                 open(f"torrent/{forbiden_car(episode)}.torrent", "wb").write(r.content)
-                print(f"{episode} downloaded")
-                log(f"[{time_log()}] DOWNLOADER: {episode} ADDED")
+                print(f"DOWNLOADER: {episode} ADDED")
+                log(f"DOWNLOADER: {episode} ADDED")
 
 
 if __name__ == "__main__":
