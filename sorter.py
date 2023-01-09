@@ -17,7 +17,7 @@ def main():
                 os.makedirs(f"{move_dir}/{title}/Season {sorting.season}", exist_ok=True)
                 for file_dup in already_in_folder(file):
                     os.remove(file_dup)
-                    log(f"[{time_log()}] DATABASE: {file_dup} REMOVED (duplicate)")
+                    log(f"DATABASE: {file_dup} REMOVED (duplicate)")
                 try:
                     pass
                     shutil.move(f"{dir}/{file}",
@@ -30,7 +30,7 @@ def main():
                     shutil.move(f"{dir}/{file}",
                                 f"{move_dir}/{title}/Season {sorting.season}/{forbiden_car(sorting.__str__())}")
                 finally:
-                    logs = f"[{time_log()}] SORTER: {file} ---> {sorting.__str__()}"
+                    logs = f"SORTER: {sorting.__str__()} ADDED TO LIBRARY"
                     log(logs)
                     print(logs)
                 

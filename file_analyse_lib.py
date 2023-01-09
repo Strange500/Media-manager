@@ -887,7 +887,7 @@ def check_cache(file) -> str:
 
 def log(to_log: str) -> None:
     if type(to_log) == str:
-        open("log.txt", "a", encoding="utf-8").write(to_log + "\n")
+        open("log.txt", "a", encoding="utf-8").write(f'[{time_log()}] {to_log}\n')
 
 
 def get_anime() -> None:
@@ -1029,7 +1029,7 @@ def merge(folder1, folder2):
 
 def list_anime():
     """liste les different anime ainsi que les dossier correspondant"""
-    log(f"[{time_log()}] DATABASE: SCANNING LIBRARY")
+    log(f"DATABASE: SCANNING LIBRARY")
     dic = {}
     for dir in anime_dir:
         for file in os.listdir(dir):
@@ -1245,7 +1245,6 @@ def database_check():
                     else:
                         ls.append(f"S{nb:02}E{epi}")
         if ls != []:
-            log(f"[{time_log()}] DATABASE: (WARNING) {anime.title} episode missing")
             print(f"Missing ep are: " + ",".join(ls))
             missing[anime.title] = ls
 
@@ -1278,7 +1277,7 @@ def search_ep(anime: str, season: str, ep_number: list):
     check, file = check_nyaa_database(anime, season, ep_number)
     if check != None:
         download_torrent(check, file_name=file)
-        log(f"[{time_log()}] DATABASE: {file} downloaded via nyaa.json")
+        log(f"DATABASE: {file} downloaded via nyaa.json")
         return
     elif ep_number == []:
         return
@@ -1303,13 +1302,13 @@ def search_ep(anime: str, season: str, ep_number: list):
                     if file.title == title_to_romaji(anime["title"]) and file.season == season:
                         download_torrent(r.ep[keys], file_name=keys)
 
-                        log(f"[{time_log()}] DATABASE: {keys} downloaded via nyaa.si")
+                        log(f"DATABASE: {keys} downloaded via nyaa.si")
 
                 elif ep_number != [] and file.title == title_to_romaji(
                         anime["title"]) and file.episode in ep_number and file.season == season:
                     download_torrent(r.ep[keys], file_name=keys)
                     ep_number.pop(ep_number.index(file.episode))
-                    log(f"[{time_log()}] DATABASE: {keys} downloaded via nyaa.si")
+                    log(f"DATABASE: {keys} downloaded via nyaa.si")
         if ep_number != []:
             for source in sources:
                 if season == "01":
@@ -1325,11 +1324,11 @@ def search_ep(anime: str, season: str, ep_number: list):
                             anime["title"]) and file.episode in ep_number and file.season == season:
                         download_torrent(r.ep[keys], file_name=keys)
                         ep_number.pop(ep_number.index(file.episode))
-                        log(f"[{time_log()}] DATABASE: {keys} downloaded via nyaa.si")
+                        log(f"DATABASE: {keys} downloaded via nyaa.si")
 
 
 def download_missing_ep(missing: dict):
-    log(f"[{time_log()}] DATABASE: Searching missing episode")
+    log(f"DATABASE: Searching missing episode")
     for keys in missing.keys():
         if len(missing[keys]) > 24:
             pass
