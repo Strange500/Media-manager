@@ -162,33 +162,9 @@ def delete_duplicate():
                     print("remove " + file)
                     os.remove(file)
 
-        # for dir in dic[anime]:
-        #     for elt in os.listdir(dir):
-        #         if "Season" in elt and os.path.isdir(f"{dir}/{elt}"):
-        #             for file in os.listdir(f"{dir}/{elt}"):
-        #                 if ("mkv" in file or "mp4" in file) and "Judas" in file:
-        #                     ep=File(file).__str__().split(" - ")[1]
-        #                     if ep not in liste_ep:
-        #                         liste_ep.append(ep)
-        #                     else:
-        #                         print("remove "+file)
-        #                         os.remove(f"{dir}/{elt}/{file}")
-        #     for elt in os.listdir(dir):
-        #         if "Season" in elt and os.path.isdir(f"{dir}/{elt}"):
-        #             for file in os.listdir(f"{dir}/{elt}"):
-        #                 if ("mkv" in file or "mp4" in file) and "Judas" not in file:
-        #                     ep=File(file).__str__().split(" - ")[1]
-        #                     if ep not in liste_ep:
-        #                         liste_ep.append(ep)
-        #                     else:
-        #                         print("remove "+file)
-        #                         os.remove(f"{dir}/{elt}/{file}")
-
-
 def main() -> None:
-    delete_duplicate()
+    # delete_duplicate()
 
-    # json.dump(list_anime(),open("anime_lib.json","w"),indent=4)
 
     anime_lib = json.load(open("anime_lib.json", "r"))
 
