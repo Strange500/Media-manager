@@ -60,6 +60,8 @@ def have_judas(anime) -> bool:
     else:
         dir = anime
     # print(dir)
+    if dir == None:
+        return False
     statut = True
     for file in os.listdir(dir):
         # print(file)
@@ -163,7 +165,7 @@ def delete_duplicate():
                     os.remove(file)
 
 def main() -> None:
-    # delete_duplicate()
+    delete_duplicate()
 
 
     anime_lib = json.load(open("anime_lib.json", "r"))

@@ -887,11 +887,12 @@ def check_cache(file) -> str:
 
 def log(to_log: str) -> None:
     if type(to_log) == str:
-        open("log.txt", "a", encoding="utf-8").write(f'[{time_log()}] {to_log}\n')
+        l = f'[{time_log()}] {to_log}\n'
+        print(l.replace("\n",""))
+        open("log.txt", "a", encoding="utf-8").write(l)
 
 
 def get_anime() -> None:
-    ### remplacer anilist par imdb ####
     for dir in download_dir:
         for file in os.listdir(dir):
             if "MOVIE" not in file and ("mp4" in file or "mkv" in file):
@@ -911,10 +912,20 @@ def get_anime() -> None:
                     try:
                         shutil.move(f'{dir}/{file}', sorter_dir[1])
                     except shutil.Error:
-                        os.remove(f"{sorter_dir[0]}/{file}")
-                        shutil.move(f'{dir}/{file}', sorter_dir[1])
+                        try: 
+                            os.remove(f"{sorter_dir[0]}/{file}")
+                        except FileNotFoundError:
+                            try: 
+                                os.remove(f"{sorter_dir[1]}/{file}")
+                            except FileNotFoundError:
+                                pass
+                        try:
+                            shutil.move(f'{dir}/{file}', sorter_dir[1])
+                        except FileNotFoundError:
+                            pass
                     except OSError:
                         shutil.move(f'{dir}/{file}',sorter_dir[0])
+                    
             elif os.path.isdir(f'{dir}/{file}'):
                 extract(f'{dir}/{file}')
 
@@ -1130,7 +1141,7 @@ def find_anime_dir(anime: str):
         for file in os.listdir(dir):
             if anime == title_to_romaji(file):
                 return f"{dir}/{file}"
-    return "no dir"
+    return None
 
 
 def get_source(anime: str):
@@ -1366,7 +1377,6 @@ def already_in_folder(file: str, dir: list | None | str = None):
         try:
             dir = [ls_lib[anime] for anime in ls_lib if t == anime][-1]
         except IndexError:
-            print("here")
             os.makedirs(forbiden_car(f"{anime_dir[0]}/{LightFile(file).title()}"),exist_ok=True)
 
             return []
