@@ -172,10 +172,11 @@ class LightFile():
 
     def title(self):
         """return the title of a video"""
-        file = self.file_name
+        file = self.path
         for banned_car in [("[", "]"), ("{", "}"), ("(", ")")]:
             car1, car2 = banned_car
             file = car_to_car(file, car1, car2)
+        file = file.split("/")[-1].strip()
         if "2nd Season" in file:
             file = file.replace("2nd Season", "")
         if "st Season" in file:
@@ -218,11 +219,12 @@ class LightFile():
 
     def determine_ep(self) -> str:
         """return the ep of a video file from it's title"""
-        file, ls, temp = self.file_name, [], None
+        file, ls, temp = self.path, [], None
         file = file.replace(".mp4", "").strip()
         for banned_car in [("[", "]"), ("{", "}"), ("(", ")")]:
             car1, car2 = banned_car
             file = car_to_car(file, car1, car2)
+        file = file.split("/")[-1].strip()
         temp_file = file
         ls = isolate_numbers(temp_file)
         if ls == []:
@@ -260,12 +262,13 @@ class LightFile():
 
     def determine_season(self) -> str:
         """return the season of a video file from it's title"""
-        file, ls = self.file_name, []
+        file, ls = self.path, []
         file = file.replace(".mp4", "").strip()
 
         for banned_car in [("[", "]"), ("{", "}"), ("(", ")")]:
             car1, car2 = banned_car
             file = car_to_car(file, car1, car2)
+        file = file.split("/")[-1].strip()
         if "oav" in file.lower():
             return "00"
         temp_file = file
