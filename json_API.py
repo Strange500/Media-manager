@@ -3,7 +3,7 @@ import os
 import shutil
 import time
 import urllib.parse
-
+import psutil
 import random
 import requests
 import tmdbsimple as tmdb
@@ -209,6 +209,74 @@ def st_dl(url):
             })
     except:
         return json.dumps({"statut": "error"}, indent=5)
+
+def get_last_line(file_path):
+    with open(file_path, "r") as f:
+        lines = f.readlines()
+        return lines[-1] if lines else ""
+
+def info_upload(log_dir="encoding/log") -> str:
+    r = {}
+    for file in os.listdir(log_dir):
+        info = get_last_line(f"{log_dir}/{file}")
+        percent = "".join(info.split(" ")[5:7])
+        fps = "".join(info.split(" ")[7:9])[1:]
+        avg_fps = "".join(info.split(" ")[10:12])
+        time = info.split(" ")[-1][:-1]
+
+        r[file.split(".txt")[0]] = [percent, fps, avg_fps, time]
+    return json.dumps(r, indent=4)
+
+def get_encode_statut():
+    d, response =check_encode(), {}
+    for file in d:
+        video_name, dic = d[file].split("/")[-1], json.loads(info_upload())
+        if is_running(file) :
+            try:
+                response[video_name] = f"{dic[video_name][0]}"[:-1]
+            except KeyError:
+                pass
+        else:
+            response[video_name] = f"100"
+    return json.dumps(response, indent=4)
+
+def path_file_ready():
+    d, r= check_encode(), {"values" : []}
+    for pid in d:
+            if not is_running(pid):
+                r["values"].append(d[pid])
+    return json.dumps(r, indent=5)
+
+def replace(file,dest_file):
+    if "/" in dest_file:
+        path=dest_file.split("/")
+        path.pop(-1)
+        path="/".join(path)
+    os.replace(file,dest_file)
+
+
+def is_running(pid:int):
+    try:
+        pid = int(pid)
+    except:
+        return False
+    # Check if the process is running
+    if psutil.pid_exists(int(pid)):
+        
+        return True
+    else:
+        open("encoding.txt", 'w', encoding="utf-8", errors="ignore").write("\n".join(check_encode().pop(str(pid))))
+        return False
+
+def check_encode()->dict:
+    try:
+        r = json.load(open("encoding.json", "r"))
+    except json.decoder.JSONDecodeError:
+        r = {}
+    return r
+
+def ready():
+    return get_encode_statut()  
 
 if __name__ == "__main__":
     # requests.post(tixai_url+"/transfers/23ddb96c16454692/details/action",

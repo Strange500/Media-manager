@@ -1,0 +1,83 @@
+<html>
+  <head>
+    <script>
+      function uploadFile() {
+        var fileInput = document.getElementById("fileInput");
+        var file = fileInput.files[0];
+        var formData = new FormData();
+        formData.append("file", file);
+
+        var xhr = new XMLHttpRequest();
+        xhr.open("POST", "/upload", true);
+
+        xhr.upload.addEventListener("progress", function(e) {
+          var percentComplete = (e.loaded / e.total) * 100;
+          document.getElementById("progress").style.width = percentComplete + "%";
+        });
+
+        xhr.addEventListener("load", function(e) {
+          console.log("Upload complete");
+        });
+
+        xhr.send(formData);
+      }
+    </script>
+    
+  </head>
+  <body>
+    <div class="upload_div" style="border: solid 1px black;">
+      <form>
+        <input type="file" id="fileInput" />
+      </form>
+      <button onclick="uploadFile()">Upload</button>
+      <div style="height: 10vh;width: 10vh;">
+          
+          <div style="background: white; height: 20px;border: 1px solid black;border-radius: 7%;">
+              <div id="progress" style="background: green; height: 100%;"></div>
+          </div>
+      </div>
+  </div>
+  <div id="dl_div" class="dl_div" style="border: solid 1px black;">
+    <a href="#" id="download-link">Download</a>
+  </div>
+
+  <!-- <script>
+    function downloadFile(element) {
+        // Get the filename from the element's value
+        const filename = element.value;
+
+        // Create a new anchor element
+        const link = document.createElement('a');
+
+        // Set the href attribute to the filename
+        link.href = filename;
+
+        // Set the download attribute to the filename
+        link.download = filename;
+
+        // Add the anchor element to the page
+        document.body.appendChild(link);
+
+        // Click the anchor element to start the download
+        link.click();
+
+        // Remove the anchor element from the page
+        document.body.removeChild(link);
+      }
+    function dl_link (link){
+      document.getElementById("download-link").addEventListener("click", function(event) {
+        event.preventDefault();
+        const downloadUrl = "/server/upload/Lobster Jumpscare.mp4";
+        const link = document.createElement("a");
+        link.href = downloadUrl;
+        link.download = downloadUrl.split("/")[3];
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      });}
+  </script> -->
+  <div id="progressBars"></div>
+  <script src="script.js"></script>
+  </body>
+
+</html>
