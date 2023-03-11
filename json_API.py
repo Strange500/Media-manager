@@ -7,7 +7,7 @@ import psutil
 import random
 import requests
 import tmdbsimple as tmdb
-import wmi
+import wmi, subprocess
 from bs4 import BeautifulSoup as bs
 from file_analyse_lib import LightFile
 
@@ -17,6 +17,33 @@ tmdb.API_KEY = "91d34b37526d54cfd3d6fcc5c50d0b31"
 tmdb.REQUESTS_TIMEOUT = 5  # seconds, for both connect and read
 tixai_url = "http://127.0.0.1:8888"
 
+class Waifu2x():
+
+    def __init__(self, scale: int | None = 2, noise : int | None = 2, format: str |None = "png") -> None:
+        self.__scale = scale
+        self.__noise = noise
+        self.__format = format
+
+    @property
+    def scale(self):
+        return self.__scale
+    @property
+    def noise(self):
+        return self.__noise
+    @property
+    def format(self):
+        return self.__format
+    
+
+    def run(self, file_path: str, target_dir : str) -> str:
+        """upsacle input image and return the path of the upscaled image"""
+        if self.format:
+            file_name = file_path.split("/")[-1].replace(".jpg",f".{self.format}")
+        else:
+            file_name = file_path.split("/")[-1].split(".")[0]+".png"
+        print(f"upscale_engine/waifu2x.exe -i {file_path} -o {f'{target_dir}/{file_name}'} -n {self.noise} -s {self.scale} ")
+        subprocess.run(f"upscale_engine/waifu2x.exe -i {file_path} -o {f'{target_dir}/{file_name}'} -n {self.noise} -s {self.scale} ")
+        return f'{target_dir}/{file_name}'
 
 def get_page(url: str):
     return requests.get(url).content
@@ -276,16 +303,13 @@ def check_encode()->dict:
     return r
 
 def ready():
-    return get_encode_statut()  
+    return get_encode_statut()
+
+def upscale():
+    w, dir, target, r = Waifu2x(), "to_upscale", "upscaled", {}
+    for file in os.listdir(dir):
+            r[file] = w.run(file_path=f"{dir}/{file}", target_dir=target)
+    return json.dumps(r, indent=5)
 
 if __name__ == "__main__":
-    # requests.post(tixai_url+"/transfers/23ddb96c16454692/details/action",
-    # data={
-    #     "start" : "Start"
-    # })
-    # print(complete())
-    print(downloading())
-    print(st_dl("http://82.65.222.143:8080/stop_dl/?url=http://82.65.222.143:8888/transfers/b460be16f994e933/details"))
-    # print(serv_log())
-    # print(find_file_movie(680,"pulp fiction"))
-    # print(dl("http://127.0.0.1:8080/dl/?is_show=false&q=767:Harry%20Potter%20and%20the%20Half-Blood%20Prince+674:Harry%20Potter%20and%20the%20Goblet%20of%20Fire"))
+    print(upscale())

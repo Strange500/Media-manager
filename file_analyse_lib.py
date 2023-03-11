@@ -757,9 +757,12 @@ if "anime_titles_database.json" not in os.listdir():
     json.dump({}, open("anime_titles_database.json", 'w'))
 if "judas_anime_lib.json" not in os.listdir():
     json.dump({}, open("judas_anime_lib.json", 'w'))
-
-banned_words, select_words = open("banned_words.txt", "r", encoding="utf-8").read().split("\n"), open(
-    "select_words.txt", "r", encoding="utf-8").read().split("\n")
+try:
+    banned_words, select_words = open("banned_words.txt", "r", encoding="utf-8").read().split("\n"), open(
+        "select_words.txt", "r", encoding="utf-8").read().split("\n")
+except FileNotFoundError:
+    banned_words, select_words = [], []
+    print("WARNING NO FILTER ON DOWNLOAD")
 sources = open("sources.txt", "r").read().split("\n")
 anime_dir = config['anime_dir'].split(",")
 movie_dir = config['movie_dir'].split(",")
