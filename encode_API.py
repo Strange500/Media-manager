@@ -1,7 +1,7 @@
 
 import cgi, os, http.server, socketserver, shutil, psutil, json
 
-PORT = 8081
+PORT = 8082
 UPLOAD_DIR = "server/upload"
 open("encoding.json", "a+").close()
 os.makedirs("encoding/log", exist_ok=True)

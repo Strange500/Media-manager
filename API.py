@@ -7,7 +7,7 @@ from os import remove
 from json_API import *
 
 HTML_FILE_NAME = 'alive'
-PORT_NUMBER = 8080
+PORT_NUMBER = 8081
 
 UPLOAD_DIR = 'upload'
 
