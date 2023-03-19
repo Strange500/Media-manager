@@ -671,7 +671,7 @@ class FeedAnime():
     def analyse_titles(self) -> dict:
         dict, new_dictt = deepcopy(self.filtered_ep), {}
         for key in dict:
-            analasing = File(key)
+            analasing = LightFile(key)
             new_dictt[analasing.__str__()] = dict[key]
         already_in, newdict = [], {}
         for keys in new_dictt:
@@ -716,6 +716,7 @@ class FeedAnime():
         self.__ep_link = self.get_ep_with_link()
         store_nyaa(self.__ep_link)
         self.__filered_ep = self.filtre(banned_words, select_words)
+        
         self.__ep = self.analyse_titles()
 
     @property

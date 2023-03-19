@@ -10,7 +10,7 @@ def main():
         for episode in feed.ep:
             try:
                 file_name = LightFile(episode).__str__()
-                print(file_name)
+                
             except:
                 pass
             if file_name in open("already_download.txt", "r", encoding="utf-8").read().split("\n"):
