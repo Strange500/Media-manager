@@ -8,6 +8,7 @@ def main():
         feed = FeedAnime(url, banned_words, select_words)
 
         for episode in feed.ep:
+
             try:
                 file_name = LightFile(episode).__str__()
                 

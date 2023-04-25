@@ -5,11 +5,13 @@ from file_analyse_lib import *
 
 def main():
     get_anime()
+    print(sorter_dir)
     for dir in sorter_dir:
-        if "E" in dir:
+        if "" in dir:  #remplacer par une fonction qui evalue la place restante
             move_dir = anime_dir[0]
-        else:
+        elif len(anime_dir) > 1:
             move_dir = anime_dir[1]
+        print(os.listdir(dir))
         for file in os.listdir(dir):
             if ".mkv" in file or ".mp4" in file:
                 sorting = File(f'{dir}/{file}')

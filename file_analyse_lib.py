@@ -16,7 +16,7 @@ tmdb.REQUESTS_TIMEOUT = 5  # seconds, for both connect and read
 import datetime
 
 
-###CLASS###
+ ###CLASS###
 class Anime:
     """Provide a view on the anime"""
 
@@ -31,13 +31,14 @@ class Anime:
                 self.__tmbd = tmdb.TV(self.id)
                 self.__info = self.__tmbd.info()
             else:
-                with open(f"anime_database/{title}.json", "r") as f:
+                with open(os.path.join(f"anime_database",f"{title}.json"), "r") as f:
                     try:
                         self.__info = json.load(f)
                     except json.decoder.JSONDecodeError:
                         f.close()
                         try:
-                            os.remove(f"anime_database/{title}.json")
+                            
+                            os.remove(os.path.join(f"anime_database",f"{title}.json"))
                         except FileNotFoundError:
                             pass
                         self.__init__(title)
@@ -49,7 +50,7 @@ class Anime:
             self.__season = self.info["number_of_seasons"]
             self.__ep = self.info["number_of_episodes"]
             try:
-                with open(f"anime_database/{forbiden_car(self.title)}.json", "w") as f:
+                with open(os.path.join(f"anime_database",f"{forbiden_car(self.title)}.json"), "w") as f:
                     json.dump(self.info, f, indent=4)
             except:
                 pass
@@ -268,7 +269,7 @@ class LightFile():
         for banned_car in [("[", "]"), ("{", "}"), ("(", ")")]:
             car1, car2 = banned_car
             file = car_to_car(file, car1, car2)
-        file = file.split("/")[-1].strip()
+        file = os.path.basename(file)
         if "oav" in file.lower():
             return "00"
         temp_file = file
@@ -347,26 +348,9 @@ class File():
                 file = file[1:]
         except:
             pass
-        # while temp_file!="": #isolate all number in file_name then associate number with season
-        #     nb=""
-        #     try:
-        #         while temp_file[0] not in [str(i) for i in range(0,10)]:
-        #             temp_file=temp_file[1:]
-        #     except IndexError:
-        #         break
-        #     try:
-        #         while temp_file[0] in [str(i) for i in range(0,10)] :
-        #             nb=nb+temp_file[0]
-        #             temp_file=temp_file[1:]
-        #         if len(nb)<4:
-        #             ls.append(nb)
-
-        #     except IndexError:
-        #         if len(nb)<4:
-        #             ls.append(nb)
+        
         ls = isolate_numbers(file)
-        # if ls[0]==[i for i in file if file.index(i) in [0,1,2] and i in [str(i) for i in range(0,10)]]:
-        #     ls.pop(0)
+
         if len(ls) == 1:
             return "01"
         for elt in ls:
@@ -450,18 +434,20 @@ class File():
                     return f"{int(ep):04}"
 
     def determine_encode(self) -> str:
-        for encode in ["h264", "x264", "avc1", "h.264"]:
+        lencode = ["h264", "x264", "avc1", "h.264"]
+        hencode = ["hevc", "h265", "x265", "hvc1", "h.265"]
+        for encode in lencode:
             if encode in self.file_name.lower():
                 return "h264"
-        for encode in ["hevc", "h265", "x265", "hvc1", "h.265"]:
+        for encode in hencode:
             if encode in self.file_name.lower():
                 return "h265"
         try:
             codec = self.__video_spec["codec_id"].lower()
-            for encode in ["hevc", "h265", "x265", "hvc1", "h.265"]:
+            for encode in hencode:
                 if encode in codec:
                     return "h265"
-            for encode in ["h264", "x264", "avc1", "h.264"]:
+            for encode in lencode:
                 if encode in codec:
                     return "h264"
         except KeyError:
@@ -539,8 +525,13 @@ class File():
             self.__tracks = {}
             self.__video_spec = {}
             self.__resolution = "no resolution"
+        except OSError:
+            self.__spec = None
+            self.__tracks = {}
+            self.__video_spec = {}
+            self.__resolution = "no resolution"
 
-        self.__file_name = path_to_file.split("/")[-1].strip()
+        self.__file_name = os.path.basename(path_to_file)
         self.__season = self.determine_season()
         self.__ep = self.determine_ep()
         self.__title = title_to_romaji(self.determine_title())
@@ -692,8 +683,9 @@ class FeedAnime():
     def filtre(self, banned_words: list, select_word: list) -> dict:
         dicto = deepcopy(self.__ep_link)
         for title in self.__ep_link:
+            selected = True
             for select in select_word:
-                if select in title:
+                if select in title  or select == '':
                     selected = True
                     break
                 else:
@@ -703,7 +695,7 @@ class FeedAnime():
         dictoo = deepcopy(dicto)
         for title in dicto:
             for banned in banned_words:
-                if banned in title:
+                if banned in title and banned != '':
                     dictoo.pop(title)
                     break
         return dictoo
@@ -714,6 +706,7 @@ class FeedAnime():
         self.__feed = feedparser.parse(self.url)
 
         self.__ep_link = self.get_ep_with_link()
+        
         store_nyaa(self.__ep_link)
         self.__filered_ep = self.filtre(banned_words, select_words)
         
@@ -745,19 +738,26 @@ class FeedAnime():
 
 ls, config = open("config.txt", 'r', encoding="utf-8").read().split("\n"), {}
 for elt in ls:
-    config[elt.split(" : ")[0]] = elt.split(" : ")[1]
+    try:
+        config[elt.split(" : ")[0]] = elt.split(" : ")[1]
+    except IndexError:
+        pass
 del ls
 
 if "sources.txt" not in os.listdir():
     open("sources.txt", "w")
 if "nyaa.json" not in os.listdir():
     json.dump({}, open("nyaa.json", "w"))
+if "missing.json" not in os.listdir():
+    json.dump({}, open("missing.json", "w"))
 if "anime_id.json" not in os.listdir():
     json.dump({}, open("anime_id.json", 'w'))
 if "anime_titles_database.json" not in os.listdir():
     json.dump({}, open("anime_titles_database.json", 'w'))
 if "judas_anime_lib.json" not in os.listdir():
     json.dump({}, open("judas_anime_lib.json", 'w'))
+if "anime_lib.json" not in os.listdir():
+    json.dump({}, open("anime_lib.json", 'w'))
 try:
     banned_words, select_words = open("banned_words.txt", "r", encoding="utf-8").read().split("\n"), open(
         "select_words.txt", "r", encoding="utf-8").read().split("\n")
@@ -885,7 +885,8 @@ def extract(dir):
     elif "\\" in dir:
         parent_dir="\\".join(dir.split("\\")[:-1])
     for file in os.listdir(dir):
-        shutil.move(f'{dir}/{file}',parent_dir)
+        shutil.move(os.path.join(f"{dir}",f"{file}"),parent_dir)
+        
     shutil.rmtree(dir)
 
 def check_cache(file) -> str:
@@ -895,43 +896,45 @@ def check_cache(file) -> str:
 def log(to_log: str) -> None:
     if type(to_log) == str:
         l = f'[{time_log()}] {to_log}\n'
-        print(l.replace("\n",""))
         open("log.txt", "a", encoding="utf-8").write(l)
 
 
 def get_anime() -> None:
+    """look for videos to sort and choose between movie and series"""
     for dir in download_dir:
         for file in os.listdir(dir):
             if "MOVIE" not in file and ("mp4" in file or "mkv" in file):
                 if "E:" in dir:
                     try:
-                        shutil.move(f'{dir}/{file}', sorter_dir[0])
+                        shutil.move(os.path.join(f"{dir}",f"{file}"), sorter_dir[0])
                     except shutil.Error:
                         try:
-                            os.remove(f"{sorter_dir[1]}/{file}")
+                            os.remove(os.path.join(sorter_dir[0], file))
                         except FileNotFoundError:
-                            os.remove(f"{sorter_dir[0]}/{file}")
-
-                        shutil.move(f'{dir}/{file}', sorter_dir[0])
+                            if len(sorter_dir) > 1:
+                                os.remove(os.path.join(sorter_dir[1], file))
+                            
+                        shutil.move(os.path.join(f"{dir}",f"{file}"), sorter_dir[0])
                     except OSError:
-                        shutil.move(f'{dir}/{file}', sorter_dir[1])
+                        if len(sorter_dir) > 1:
+                                shutil.move(os.path.join(f"{dir}",f"{file}"), sorter_dir[1])
                 else:
                     try:
-                        shutil.move(f'{dir}/{file}', sorter_dir[1])
+                        shutil.move(os.path.join(f"{dir}",f"{file}"), sorter_dir[1])
                     except shutil.Error:
                         try: 
-                            os.remove(f"{sorter_dir[0]}/{file}")
+                            os.remove(os.path.join(sorter_dir[0], file))
                         except FileNotFoundError:
                             try: 
-                                os.remove(f"{sorter_dir[1]}/{file}")
+                                os.remove(os.path.join(sorter_dir[1], file))
                             except FileNotFoundError:
                                 pass
                         try:
-                            shutil.move(f'{dir}/{file}', sorter_dir[1])
+                            shutil.move(os.path.join(f"{dir}",f"{file}"), sorter_dir[1])
                         except FileNotFoundError:
                             pass
                     except OSError:
-                        shutil.move(f'{dir}/{file}',sorter_dir[0])
+                        shutil.move(os.path.join(f"{dir}",f"{file}"), sorter_dir[0])
                     
             elif os.path.isdir(f'{dir}/{file}'):
                 extract(f'{dir}/{file}')
@@ -947,7 +950,7 @@ def list_season(dir):
             else:
                 ls += list_season(f"{dir}/{file}")
 
-        elif os.path.isfile(f"{dir}/{file}") and ("mp4" in file or "mkv" in file):
+        elif os.path.isfile(os.path.join(f"{dir}",f"{file}")) and ("mp4" in file or "mkv" in file):
             ls.append(file)
     return ls
 
@@ -987,26 +990,25 @@ def merge(folder1, folder2):
     list_folder2 = os.listdir(folder2)
     for file in list_folder2:
         # fichier en double non video
-        if file in list_folder1 and not os.path.isdir(folder2 + "/" + file) and "mkv" not in file and "mp4" not in file:
+        if file in list_folder1 and not os.path.isdir(os.path.join(folder2, file)) and "mkv" not in file and "mp4" not in file:
             print("not ep" + " " + file)
-            os.remove(folder2 + "/" + file)
+            os.remove(os.path.join(folder2, file))
         # fichier pas en double et non video
-        elif file not in list_folder1 and not os.path.isdir(
-                folder2 + "/" + file) and "mkv" not in file and "mp4" not in file:
-            print(folder2 + "/" + file + " -----> " + folder1 + "/" + file)
-            shutil.move(folder2 + "/" + file, folder1 + "/" + file)
+        elif file not in list_folder1 and not os.path.isdir(os.path.join(folder2, file)) and "mkv" not in file and "mp4" not in file:
+            print(os.path.join(folder2, file) + " -----> " + folder1 + "/" + file)
+            shutil.move(os.path.join(folder2, file), os.path.join(folder1, file))
         # dossier pas en double
-        elif os.path.isdir(folder2 + "/" + file) and file not in list_folder1:
-            print(folder2 + "/" + file + " -----> " + folder1 + "/" + file)
+        elif os.path.isdir(os.path.join(folder2, file)) and file not in list_folder1:
+            print(os.path.join(folder2, file) + " -----> " + os.path.join(folder1, file))
             try:
-                print(folder2 + "/" + file)
-                shutil.move(folder2 + "/" + file, folder1 + "/" + file)
+                print(os.path.join(folder2, file))
+                shutil.move(os.path.join(folder2, file), os.path.join(folder1, file))
             except:
                 pass
             print("dossier " + file)
         # dossier en double
-        elif os.path.isdir(folder2 + "/" + file) and file in list_folder1:
-            merge(folder1 + "/" + file, folder2 + "/" + file)
+        elif os.path.isdir(os.path.join(folder2, file)) and file in list_folder1:
+            merge(os.path.join(folder1, file), os.path.join(folder2, file))
         # episode
         elif "mkv" in file or "mp4" in file:
             if list_folder1 != NoneType:
@@ -1014,28 +1016,17 @@ def merge(folder1, folder2):
                     if ep_file(file) == ep_file(file_folder1):
                         try:
                             print(file + " remove")
-                            os.remove(folder2 + "/" + file)
+                            os.remove(os.path.join(folder2, file))
                         except FileNotFoundError:
                             pass
                         except:
                             pass
                     else:
                         try:
-                            print(folder2 + "/" + file + " -----> " + folder1 + "/" + file)
-                            shutil.move(folder2 + "/" + file, folder1 + "/" + file)
+                            print(os.path.join(folder2, file) + " -----> " + os.path.join(folder1, file))
+                            shutil.move(os.path.join(folder2, file), os.path.join(folder1, file))
                         except FileNotFoundError:
                             pass
-
-            # liste_ep_folder1={}
-            # liste_ep_folder2={}
-            # for filee in list_folder1:
-            #     if "mkv" in filee or "mp4" in filee and " - " in filee:
-            #         liste_ep_folder1[ep_file(filee)]=filee
-            # for fileee in list_folder2:
-            #     if "mkv" in fileee or "mp4" in fileee and " - " in fileee:
-            #         liste_ep_folder2[ep_file(fileee)]=fileee
-            # for ep in liste_ep_folder2:
-            #     if ep in liste_ep_folder1:
 
     try:
         open("delete.txt", "a").write(folder2 + "\n")
@@ -1051,13 +1042,13 @@ def list_anime():
     dic = {}
     for dir in anime_dir:
         for file in os.listdir(dir):
-            if os.path.isdir(f"{dir}/{file}"):
+            if os.path.isdir(os.path.join(dir, file)):
                 try:
                     title = Anime(file).title
                     if title in dic.keys():
-                        dic[title].append(f"{dir}/{file}")
+                        dic[title].append(os.path.join(dir, file))
                     else:
-                        dic[title] = [f"{dir}/{file}"]
+                        dic[title] = [os.path.join(dir, file)]
                 except IndexError:
                     print(f"[WARNING] can't determine {file}")
                 except requests.exceptions.JSONDecodeError:
@@ -1070,12 +1061,12 @@ def list_anime():
 
 def determine_merge(dico: dict, dir) -> None:
     for keys in dico.keys():
-        os.makedirs(f"{dir}/{forbiden_car(keys)}", exist_ok=True)
+        os.makedirs(os.path.join(dir, forbiden_car(keys)), exist_ok=True)
         print(keys, dico[keys])
         if len(dico[keys]) > 1:
             for values in dico[keys]:
                 try:
-                    merge(f"{dir}/{forbiden_car(keys)}", f"{values}")
+                    merge(os.path.join(dir, forbiden_car(keys)), f"{values}")
                 except FileNotFoundError:
                     pass
         else:
@@ -1094,10 +1085,9 @@ def delete_duplicate() -> None:
     # try:
     for dir in anime_dir:
         for anime in os.listdir(dir):
-            print(anime)
             try:
-                ls = list_season(f"{dir}/{anime}")[0]
-
+                ls = list_season(os.path.join(dir, anime))[0]
+                
                 ep = {}
                 for elt in ls:
 
@@ -1109,18 +1099,18 @@ def delete_duplicate() -> None:
                             os.remove()
                             pass
 
-
+                        
                         elif not file.split(" - ")[1].split("E")[-1].strip() in ep.keys():
                             ep[file.split(" - ")[1].split("E")[-1].strip()] = f"{elt}/{file}"
                         else:
                             if os.path.getsize(ep[file.split(" - ")[1].split("E")[-1].strip()]) <= os.path.getsize(
-                                    f"{elt}/{file}"):
-                                ep[file.split(" - ")[1].split("E")[-1].strip()] = f"{elt}/{file}"
+                                    os.path.join(elt, file)):
+                                ep[file.split(" - ")[1].split("E")[-1].strip()] = os.path.join(elt, file)
                             elif os.path.getctime(ep[file.split(" - ")[1].split("E")[-1].strip()]) >= os.path.getctime(
-                                    f"{elt}/{file}"):
-                                ep[file.split(" - ")[1].split("E")[-1].strip()] = f"{elt}/{file}"
+                                    os.path.join(elt, file)):
+                                ep[file.split(" - ")[1].split("E")[-1].strip()] = os.path.join(elt, file)
                             else:
-                                os.remove(f"{elt}/{file}")
+                                os.remove(os.path.join(elt, file))
                                 print(f"del {file}")
             except IndexError:
                 pass
@@ -1130,13 +1120,14 @@ def delete_duplicate() -> None:
 
 def check_double():
     """merge anime folder and delete double episode"""
-    json.dump(list_anime(), open("anime_lib.json", "w"))
+    json.dump(list_anime(), open("anime_lib.json", "w"))  ### update needed
     try:
-        determine_merge(json.load(open("anime_lib.json", "r")), "Y:\Ext_serv\sorter\JellyFin\Anime\Airing")
+        determine_merge(json.load(open("anime_lib.json", "r")), anime_dir[0])
 
     except:
-        determine_merge(json.load(open("anime_lib.json", "r")),
-                        "Z:\\install server v2\\sorter\\JellyFin\\Anime\\Airing")
+        if len(anime_dir) > 1:
+            determine_merge(json.load(open("anime_lib.json", "r")),
+                            anime_dir[1])
     finally:
         delete_duplicate()
         json.dump(list_anime(), open("anime_lib.json", "w"))
@@ -1159,7 +1150,6 @@ def get_source(anime: str):
             return
     else:
         dir = anime
-    print(dir)
     for file in os.listdir(dir):
         if os.path.isdir(f"{dir}/{file}") and "Season " in file:
             return get_source(f"{dir}/{file}")
@@ -1384,7 +1374,7 @@ def already_in_folder(file: str, dir: list | None | str = None):
         try:
             dir = [ls_lib[anime] for anime in ls_lib if t == anime][-1]
         except IndexError:
-            os.makedirs(forbiden_car(f"{anime_dir[0]}/{LightFile(file).title()}"),exist_ok=True)
+            os.makedirs(f"{forbiden_car(anime_dir[0])}/{forbiden_car(LightFile(file).title())}",exist_ok=True)
 
             return []
     ls=[]
@@ -1420,6 +1410,7 @@ def already_in_folder(file: str, dir: list | None | str = None):
 
     return ls
 
-
+import platform
 if __name__ == '__main__':
+    print(platform.system())
     test_mode()

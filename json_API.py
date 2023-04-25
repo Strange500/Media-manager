@@ -1,4 +1,4 @@
-import json
+import json, platform
 import os
 import shutil
 import time
@@ -7,9 +7,19 @@ import psutil
 import random
 import requests
 import tmdbsimple as tmdb
-import wmi, subprocess
+import subprocess
 from bs4 import BeautifulSoup as bs
-from file_analyse_lib import LightFile
+from file_analyse_lib import LightFile, anime_dir
+
+
+if platform.system() == "Windows" :
+    import  wmi
+
+    
+elif platform.system() == "Linux" :
+    ...
+    
+
 
 user_list = ["admin", "Lester", "La mom", "Apo", "Antoine", "DrazZ"]
 
@@ -54,18 +64,21 @@ def alive() -> json:
 
 
 def space():
-    list_disk, json_list = [f"{i}:\\" for i in [chr(k) for k in range(ord("A"), ord("Z") + 1)]], {}
-    for disk in list_disk:
-        if disk == "G:\\":
-            pass
-        else:
-            try:
-                total, used, free = shutil.disk_usage(disk)
-                json_list[disk] = {"total": total, "used": used, "free": free}
-            except:
+        if platform.system() == "Linux":
+            list_disk, json_list = anime_dir, {}
+        elif platform.system() == "Windows":
+            list_disk, json_list = [f"{i}:\\" for i in [chr(k) for k in range(ord("A"), ord("Z") + 1)]], {}
+        for disk in list_disk:
+            if disk == "G:\\":
                 pass
+            else:
+                try:
+                    total, used, free = shutil.disk_usage(disk)
+                    json_list[disk] = {"total": total, "used": used, "free": free}
+                except:
+                    pass
 
-    return json.dumps(json_list, indent=5)
+        return json.dumps(json_list, indent=5)
 
 
 def restart():
@@ -83,12 +96,15 @@ def is_user(req: str):
 
 
 def cpu_temp():
-    w = wmi.WMI(namespace="root\OpenHardwareMonitor")
-    temperature_infos = w.Sensor()
-    for sensor in temperature_infos:
+    if platform.system() == "Linux":
+        return json.dumps({"value" : psutil.sensors_temperatures()["k10temp"][0].current})
+    else:
+        w = wmi.WMI(namespace="root\OpenHardwareMonitor")
+        temperature_infos = w.Sensor()
+        for sensor in temperature_infos:
 
-        if sensor.SensorType == u'Temperature' and sensor.name == "CPU Package":
-            return json.dumps({"value": sensor.value})
+            if sensor.SensorType == u'Temperature' and sensor.name == "CPU Package":
+                return json.dumps({"value": sensor.value})
 
 
 def serv_log():
@@ -107,9 +123,11 @@ def nb_uncomplete():
 
 def stat_show():
     dic = {}
-    dic["nb_show"] = len(json.load(open("anime_lib.json", "r")))
-    dic["uncomplete"] = round(nb_uncomplete() / dic["nb_show"], 2) * 100
-
+    try:
+        dic["nb_show"] = len(json.load(open("anime_lib.json", "r")))
+        dic["uncomplete"] = round(nb_uncomplete() / dic["nb_show"], 2) * 100
+    except:
+        return json.dumps({"nb_show" : 0, "uncomplete" : 0}, indent=5)
     return json.dumps(dic, indent=5)
 
 
@@ -149,7 +167,6 @@ def dl(req: str):
             pass
 
         else:
-            print(list_id)
             for id in list_id:
                 url = find_file_movie(int(id[0]), id[1])
                 if type(url) == str:
@@ -307,9 +324,12 @@ def ready():
 
 def upscale():
     w, dir, target, r = Waifu2x(), "to_upscale", "upscaled", {}
+    os.makedirs(dir, exist_ok=True)
+    os.makedirs(target, exist_ok=True)
     for file in os.listdir(dir):
             r[file] = w.run(file_path=f"{dir}/{file}", target_dir=target)
     return json.dumps(r, indent=5)
 
 if __name__ == "__main__":
-    print(upscale())
+    print(cpu_temp())
+    
