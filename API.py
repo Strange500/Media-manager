@@ -3,7 +3,7 @@
 from http.server import CGIHTTPRequestHandler, HTTPServer, SimpleHTTPRequestHandler
 import cgi
 from os import remove
-
+from file_analyse_lib import time_log
 from json_API import *
 
 HTML_FILE_NAME = 'alive'
@@ -125,7 +125,7 @@ try:
     myHandler.cgi_directories = ["/"]
     # Wait forever for incoming http requests
     serv_api = HTTPServer(('', PORT_NUMBER), myHandler)
-    
+    print(f"[{time_log()}] MAIN: API STARTED")
     while True:
         serv_api.serve_forever()
     
