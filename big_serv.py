@@ -1,14 +1,6 @@
-import datetime
-import feedparser
-import json
-import os
-import platform
-import requests
-import shutil
-import threading
-import time
+import subprocess, platform, time, json, os, shutil, feedparser, requests, datetime, threading
 from copy import deepcopy
-
+from types import NoneType
 import tmdbsimple as tmdb
 from pymediainfo import MediaInfo
 
@@ -16,18 +8,18 @@ from pymediainfo import MediaInfo
 #############VARIABLE##############
 ###################################
 
-if platform.system() == "Windows":
+if platform.system() == "Windows" :
     PYTHON = "python"
     NTERM = "start"
     REBOOT = "shutdown /r"
-elif platform.system() == "Linux":
+elif platform.system() == "Linux" :
     PYTHON = "python3"
     NTERM = "gnome-terminal --"
     REBOOT = "reboot"
     VAR_DIR = "/var/lib/my-server"
 
 JUDAS_DRIVE = "/run/user/1000/gvfs/google-drive:host=gmail.com,user=benjamin.rogetpro,prefix=%2FGVfsSharedDrives/GVfsSharedDrives/0AFiz8sCCcL37Uk9PVA"
-GDRIVE_API_KEY = "AIzaSyCN3e10heRboPwtG1ONiFmqulI3gTioohc"
+GDRIVE_API_KEY ="AIzaSyCN3e10heRboPwtG1ONiFmqulI3gTioohc"
 tmdb.API_KEY = "91d34b37526d54cfd3d6fcc5c50d0b31"
 tmdb.REQUESTS_TIMEOUT = 5  # seconds, for both connect and read
 
@@ -59,6 +51,8 @@ ls.append(install_dir)
 ls.append(clip_load)
 ls.append(clip_lib)
 
+
+
 ######### FILE CHECKING ##########
 
 if "sources.txt" not in os.listdir(VAR_DIR):
@@ -82,6 +76,7 @@ for elt in ls:
     except:
         pass
 
+
 ######### DIRECTORY ##########
 os.makedirs(os.path.join(install_dir, "torrent"), exist_ok=True)
 
@@ -99,7 +94,6 @@ if "judas_not_vostfr.txt" not in os.listdir(VAR_DIR):
     open(os.path.join(VAR_DIR, "judas_not_vostfr.txt"), "w")
 if "judas_vostfr.txt" not in os.listdir(VAR_DIR):
     open(os.path.join(VAR_DIR, "judas_vostfr.txt"), "w")
-
 
 ###################################
 ##########BASE FONCTION############
@@ -123,7 +117,7 @@ def car_to_car(string: str, car1: str, car2: str) -> str:
 
 
 def title_already_checked(title: str) -> str:
-    with open(os.path.join(VAR_DIR, "title_romaji.txt"), "r", encoding="utf-8", errors='ignore') as f:
+    with open(os.path.join(VAR_DIR, "title_romaji.txt"),"r", encoding="utf-8", errors='ignore') as f:
         for ligne in f:
             ligne = ligne.split(" : ")
             if title == ligne[0]:
@@ -184,14 +178,13 @@ def title_to_romaji(title):
 
 def extract(dir):
     if "/" in dir:
-        parent_dir = "/".join(dir.split("/")[:-1])
+        parent_dir="/".join(dir.split("/")[:-1])
     elif "\\" in dir:
-        parent_dir = "\\".join(dir.split("\\")[:-1])
+        parent_dir="\\".join(dir.split("\\")[:-1])
     for file in os.listdir(dir):
-        shutil.move(os.path.join(f"{dir}", f"{file}"), parent_dir)
-
+        shutil.move(os.path.join(f"{dir}",f"{file}"),parent_dir)
+        
     shutil.rmtree(dir)
-
 
 # def check_cache(file) -> str:
 #     open(file, "r", encoding="utf-8").read()
@@ -210,38 +203,39 @@ def get_anime() -> None:
             if "MOVIE" not in file and ("mp4" in file or "mkv" in file):
                 if "E:" in dir:
                     try:
-                        shutil.move(os.path.join(f"{dir}", f"{file}"), sorter_dir[0])
+                        shutil.move(os.path.join(f"{dir}",f"{file}"), sorter_dir[0])
                     except shutil.Error:
                         try:
                             os.remove(os.path.join(sorter_dir[0], file))
                         except FileNotFoundError:
                             if len(sorter_dir) > 1:
                                 os.remove(os.path.join(sorter_dir[0], file))
-
-                        shutil.move(os.path.join(f"{dir}", f"{file}"), sorter_dir[0])
+                            
+                        shutil.move(os.path.join(f"{dir}",f"{file}"), sorter_dir[0])
                     except OSError:
                         if len(sorter_dir) > 1:
-                            shutil.move(os.path.join(f"{dir}", f"{file}"), sorter_dir[0])
+                                shutil.move(os.path.join(f"{dir}",f"{file}"), sorter_dir[0])
                 else:
                     try:
-                        shutil.move(os.path.join(f"{dir}", f"{file}"), sorter_dir[0])
+                        shutil.move(os.path.join(f"{dir}",f"{file}"), sorter_dir[0])
                     except shutil.Error:
-                        try:
+                        try: 
                             os.remove(os.path.join(sorter_dir[0], file))
                         except FileNotFoundError:
-                            try:
+                            try: 
                                 os.remove(os.path.join(sorter_dir[0], file))
                             except FileNotFoundError:
                                 pass
                         try:
-                            shutil.move(os.path.join(f"{dir}", f"{file}"), sorter_dir[0])
+                            shutil.move(os.path.join(f"{dir}",f"{file}"), sorter_dir[0])
                         except FileNotFoundError:
                             pass
                     except OSError:
-                        shutil.move(os.path.join(f"{dir}", f"{file}"), sorter_dir[0])
-
+                        shutil.move(os.path.join(f"{dir}",f"{file}"), sorter_dir[0])
+                    
             elif os.path.isdir(f'{dir}/{file}'):
                 extract(f'{dir}/{file}')
+
 
 
 def list_season(dir):
@@ -253,9 +247,10 @@ def list_season(dir):
             else:
                 ls += list_season(f"{dir}/{file}")
 
-        elif os.path.isfile(os.path.join(f"{dir}", f"{file}")) and ("mp4" in file or "mkv" in file):
+        elif os.path.isfile(os.path.join(f"{dir}",f"{file}")) and ("mp4" in file or "mkv" in file):
             ls.append(file)
     return ls
+
 
 
 ###specific to database.py ############
@@ -370,7 +365,7 @@ def delete_duplicate() -> None:
         for anime in os.listdir(dir):
             try:
                 ls = list_season(os.path.join(dir, anime))[0]
-
+                
                 ep = {}
                 for elt in ls:
 
@@ -382,7 +377,7 @@ def delete_duplicate() -> None:
                             os.remove()
                             pass
 
-
+                        
                         elif not file.split(" - ")[1].split("E")[-1].strip() in ep.keys():
                             ep[file.split(" - ")[1].split("E")[-1].strip()] = f"{elt}/{file}"
                         else:
@@ -400,12 +395,9 @@ def delete_duplicate() -> None:
             except FileNotFoundError:
                 pass
 
-
 def update_anime():
     json.dump(list_anime(), open(os.path.join(VAR_DIR, "anime_lib.json"), "w"))
     return json.load(open(os.path.join(VAR_DIR, "anime_lib.json"), "r"))
-
-
 def check_double():
     """merge anime folder and delete double episode"""
     dic = update_anime()  ### update needed
@@ -414,7 +406,7 @@ def check_double():
 
     except:
         if len(anime_dir) > 1:
-            determine_merge(dic, anime_dir[1])
+            determine_merge(dic,anime_dir[1])
     finally:
         delete_duplicate()
         update_anime()
@@ -449,31 +441,18 @@ def get_source(anime: str):
                 return
             return r
 
-
 def get_nyaajson():
     return json.load(open(os.path.join(VAR_DIR, "nyaa.json"), "r"))
-
-
 def insert_nyaajson(database):
-    json.dump(database, open(os.path.join(VAR_DIR, "nyaa.json"), "w"), indent=4)
-
-
+    json.dump(database, open(os.path.join(VAR_DIR,"nyaa.json"), "w"), indent=4)
 def get_animeid():
     return json.load(open(os.path.join(VAR_DIR, "anime_id.json"), "r"))
-
-
 def insert_animeid(database):
-    json.dump(database, open(os.path.join(VAR_DIR, "anime_id.json"), "w"), indent=4)
-
-
+    json.dump(database, open(os.path.join(VAR_DIR,"anime_id.json"), "w"), indent=4)
 def get_title_database():
     return json.load(open(os.path.join(VAR_DIR, "anime_titles_database.json"), "r"))
-
-
 def insert_title_databse(database):
-    json.dump(database, open(os.path.join(VAR_DIR, "anime_titles_database.json"), "w"), indent=4)
-
-
+    json.dump(database, open(os.path.join(VAR_DIR,"anime_titles_database.json"), "w"), indent=4)
 def store_nyaa(result: dict):
     database = get_nyaajson()
     for keys in result.keys():
@@ -515,14 +494,10 @@ def prepare_url(search):
     sel = "+".join(select_words)
     return f"{search}+{ban}+{sel}"
 
-
 def get_missing():
     return json.load(open(os.path.join(VAR_DIR, "missing.json"), "r"))
-
-
 def insert_missing(database):
-    json.dump(database, open(os.path.join(VAR_DIR, "missing.json"), "w"), indent=4)
-
+    json.dump(database, open(os.path.join(VAR_DIR,"missing.json"), "w"), indent=4)
 
 def database_check():
     dic = get_animeid()
@@ -579,7 +554,7 @@ def database_check():
 
 
 def download_torrent(url: str, file_name) -> None:
-    if f"{forbiden_car(file_name)}.torrent" not in os.listdir(os.path.join(install_dir, "torrent")):
+    if f"{forbiden_car(file_name)}.torrent" not in os.listdir(os.path.join(install_dir,"torrent")):
         torrent = requests.request("GET", url)
         os.makedirs(f"{install_dir}/torrent", exist_ok=True)
         open(f"{install_dir}/torrent/{forbiden_car(file_name)}.torrent", "wb").write(torrent.content)
@@ -599,14 +574,10 @@ def check_nyaa_database(anime: str, season, ep_number: list) -> tuple:
                 return database[keys], keys
     return None, None
 
-
 def get_source():
-    return open(os.path.join(VAR_DIR, "sources.txt"), "r").read().split("\n")
-
-
+    return open(os.path.join(VAR_DIR,"sources.txt"), "r").read().split("\n")
 def insert_source(database):
-    json.dump(database, open(os.path.join(VAR_DIR, "sources.txt"), "w"), indent=4)
-
+    json.dump(database, open(os.path.join(VAR_DIR,"sources.txt"), "w"), indent=4)
 
 def search_ep(anime: str, season: str, ep_number: list):
     check, file = check_nyaa_database(anime, season, ep_number)
@@ -693,14 +664,10 @@ def time_log():
     # Format the time as a string with the hour, minute, and second
     return current_time.strftime("%H:%M:%S")
 
-
 def get_anime_lib():
     return json.load(open(os.path.join(VAR_DIR, "anime_lib.json"), "r"))
-
-
 def insert_source(database):
-    json.dump(database, open(os.path.join(VAR_DIR, "anime_lib.json"), "w"), indent=4)
-
+    json.dump(database, open(os.path.join(VAR_DIR,"anime_lib.json"), "w"), indent=4)
 
 def already_in_folder(file: str, dir: list | None | str = None):
     if dir == None:
@@ -709,12 +676,12 @@ def already_in_folder(file: str, dir: list | None | str = None):
         try:
             dir = [ls_lib[anime] for anime in ls_lib if t == anime][-1]
         except IndexError:
-            os.makedirs(f"{anime_dir[0]}/{forbiden_car(LightFile(file).title())}", exist_ok=True)
+            os.makedirs(f"{anime_dir[0]}/{forbiden_car(LightFile(file).title())}",exist_ok=True)
 
             return []
-    ls = []
+    ls=[]
     try:
-        ep = file.split(" - ")[1]
+        ep=file.split(" - ")[1]
     except:
         ep = LightFile(file)
         ep = ep.__str__().split(" - ")[1]
@@ -745,7 +712,6 @@ def already_in_folder(file: str, dir: list | None | str = None):
 
     return ls
 
-
 def isolate_quote(file) -> list:
     contain, ls = "", []
     while file[0] != "(":
@@ -765,23 +731,14 @@ def judas_season(file):
     file = [i for i in isolate_quote(file) if "Season " in i or "Saison " in i]
     return [car for car in "".join(file) if car in [str(i) for i in range(0, 10)]]
 
-
 def get_judas_vostfr():
     return open(os.path.join(VAR_DIR, "judas_vostfr.txt"), "r", encoding="utf-8").read().split("\n")
-
-
 def get_judas_not_vostfr():
     return open(os.path.join(VAR_DIR, "judas_not_vostfr.txt"), "r", encoding="utf-8").read().split("\n")
-
-
 def insert_judas_vostfr(path_to_anime_dir):
     open(os.path.join(VAR_DIR, "judas_vostfr.txt"), "a").write(path_to_anime_dir + "\n")
-
-
 def insert_judas_not_vostfr(path_to_anime_dir):
     open(os.path.join(VAR_DIR, "judas_not_vostfr.txt"), "a").write(path_to_anime_dir + "\n")
-
-
 def judas_is_vostfr(path_to_anime_dir):
     try:
         shutil.rmtree("test")
@@ -863,15 +820,10 @@ def download_judas_anime(title):
 
 def judas_google_drive():
     print(os.listdir("G:\Drive partagés\Judas - DDL 1\Judas - DDL\[Judas] Webrip batches"))
-
-
 def get_judas_anilib():
-    return json.load(open(os.path.join(VAR_DIR, "judas_anime_lib.json"), "w"), indent=4)
-
-
+    return json.load( open(os.path.join(VAR_DIR, "judas_anime_lib.json"), "w"), indent=4)
 def insert_judas_anilib(databse):
     json.dump(databse, open(os.path.join(VAR_DIR, "judas_anime_lib.json"), "w"), indent=4)
-
 
 def list_judas_anime(path="G:\Drive partagés\Judas - DDL 1\Judas - DDL"):
     print("Scanning Judas anime")
@@ -908,6 +860,7 @@ def global_dir(directories: list) -> list:
 
 
 def delete_duplicate():
+    
     dic = update_anime()
     for anime in dic.keys():
         liste_ep = []
@@ -929,8 +882,6 @@ def delete_duplicate():
                 else:
                     print("remove " + file)
                     os.remove(file)
-
-
 ###################################
 ##############CLASS################
 ###################################
@@ -941,7 +892,7 @@ class Anime:
     def __init__(self, title) -> None:
         search = tmdb.Search()
         try:
-            os.makedirs(os.path.join(VAR_DIR, "anime_database"), exist_ok=True)
+            os.makedirs(os.path.join(VAR_DIR,"anime_database"), exist_ok=True)
         except PermissionError:
             print("WARNING can't determine existance of anime_database in /var/lib/my-server")
         try:
@@ -951,14 +902,14 @@ class Anime:
                 self.__tmbd = tmdb.TV(self.id)
                 self.__info = self.__tmbd.info()
             else:
-                with open(os.path.join(VAR_DIR, f"anime_database", f"{title}.json"), "r") as f:
+                with open(os.path.join(VAR_DIR,f"anime_database",f"{title}.json"), "r") as f:
                     try:
                         self.__info = json.load(f)
                     except json.decoder.JSONDecodeError:
                         f.close()
                         try:
-
-                            os.remove(os.path.join(f"anime_database", f"{title}.json"))
+                            
+                            os.remove(os.path.join(f"anime_database",f"{title}.json"))
                         except FileNotFoundError:
                             pass
                         self.__init__(title)
@@ -970,7 +921,7 @@ class Anime:
             self.__season = self.info["number_of_seasons"]
             self.__ep = self.info["number_of_episodes"]
             try:
-                with open(os.path.join(VAR_DIR, f"anime_database", f"{forbiden_car(self.title)}.json"), "w") as f:
+                with open(os.path.join(VAR_DIR,f"anime_database",f"{forbiden_car(self.title)}.json"), "w") as f:
                     json.dump(self.info, f, indent=4)
             except:
                 pass
@@ -1268,7 +1219,7 @@ class File():
                 file = file[1:]
         except:
             pass
-
+        
         ls = isolate_numbers(file)
 
         if len(ls) == 1:
@@ -1605,7 +1556,7 @@ class FeedAnime():
         for title in self.__ep_link:
             selected = True
             for select in select_word:
-                if select in title or select == '':
+                if select in title  or select == '':
                     selected = True
                     break
                 else:
@@ -1626,10 +1577,10 @@ class FeedAnime():
         self.__feed = feedparser.parse(self.url)
 
         self.__ep_link = self.get_ep_with_link()
-
+        
         store_nyaa(self.__ep_link)
         self.__filered_ep = self.filtre(banned_words, select_words)
-
+        
         self.__ep = self.analyse_titles()
 
     @property
@@ -1654,26 +1605,23 @@ class FeedAnime():
         return self.__ep
 
 
+
+
+
 def get_rss():
     return open(os.path.join(VAR_DIR, "rss.txt"), "r", encoding="utf-8").read().split("\n")
-
-
 def get_already_download():
     return open(os.path.join(VAR_DIR, "already_download.txt"), "r", encoding="utf-8").read().split("\n")
-
-
 def insert_already_download(file_name):
     open(os.path.join(VAR_DIR, "already_download.txt"), "a", encoding="utf-8").write(f'{file_name}\n')
-
-
 def downloader():
     for url in get_rss():
         feed = FeedAnime(url, banned_words, select_words)
         for episode in feed.ep:
-
+            
             try:
                 file_name = LightFile(episode).__str__()
-
+                
             except:
                 pass
             if file_name in get_already_download():
@@ -1688,15 +1636,14 @@ def downloader():
                 print(f"DOWNLOADER: {episode} ADDED")
                 log(f"DOWNLOADER: {episode} ADDED")
 
-
 def sorter():
     get_anime()
     for dir in sorter_dir:
-        if "" in dir:  # remplacer par une fonction qui evalue la place restante
+        if "" in dir:  #remplacer par une fonction qui evalue la place restante
             move_dir = anime_dir[0]
         elif len(anime_dir) > 1000:
             move_dir = anime_dir[1]
-
+	    
         for file in os.listdir(dir):
             if ".mkv" in file or ".mp4" in file:
                 sorting = File(f'{dir}/{file}')
@@ -1706,7 +1653,7 @@ def sorter():
                     os.remove(file_dup)
                     log(f"DATABASE: {file_dup} REMOVED (duplicate)")
                 try:
-
+                    
                     shutil.move(f"{dir}/{file}",
                                 f"{move_dir}/{title}/Season {sorting.season}/{forbiden_car(sorting.__str__())}")
 
@@ -1715,23 +1662,21 @@ def sorter():
                     os.remove(f"{move_dir}/{title}/Season {sorting.season}/{forbiden_car(sorting.__str__())}")
                     print(f"{file} already in so replaced by the newer one")
                     shutil.move(f"{dir}/{file}",
-                                f"{move_dir}/{title}/Season {sorting.season}/{forbiden_car(sorting.__str__())}")
+                        f"{move_dir}/{title}/Season {sorting.season}/{forbiden_car(sorting.__str__())}")
                 except FileNotFoundError:
                     log(f"SORTER [WARNING]: {file} error while moving")
                 finally:
                     logs = f"SORTER: {sorting.__str__()} ADDED TO LIBRARY"
                     log(logs)
                     print(logs)
-
+                
             elif os.path.isdir(f"{dir}/{file}"):
                 extract(f"{dir}/{file}")
-
 
 def check_integrity():
     update_anime()
     database_check()
     download_missing_ep(get_missing())
-
 
 def check_judas() -> None:
     delete_duplicate()
@@ -1776,12 +1721,11 @@ def check_judas() -> None:
                                     except OSError:
                                         log(f"JUDAS : (WARNING) An error occured for {file}")
 
-
 # def main():
 
 #     print(f"[{time_log()}] MAIN: SERVER STARTED")
 #    # subprocess.Popen(f"{PYTHON} API.py", shell=True)
-
+    
 
 #     print(f"[{time_log()}] MAIN: WAITING FOR EVENTS")
 #     while True:
@@ -1796,13 +1740,14 @@ def check_judas() -> None:
 #                 #t = subprocess.Popen(f"{PYTHON} theme.py", shell=True)
 #                 #t.wait()
 #             #os.system(REBOOT)
-
+            
 #         time.sleep(60)
 
 def main():
+
     print(f"[{time_log()}] MAIN: SERVER STARTED")
     # subprocess.Popen(f"{PYTHON} API.py", shell=True)
-
+    
     print(f"[{time_log()}] MAIN: WAITING FOR EVENTS")
     while True:
         date = datetime.datetime.now()
@@ -1827,12 +1772,13 @@ def main():
 
         # Wait for all threads to finish before continuing
         downloader_thread.join()
-
+        
         sorter_thread.join()
+        
 
         # Wait for 60 seconds before checking again
         time.sleep(60)
 
-
 if __name__ == '__main__':
-    main()
+   
+   main()
