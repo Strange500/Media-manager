@@ -1,16 +1,15 @@
 import datetime
-import feedparser
 import json
 import os
 import platform
-import requests
 import shutil
 import threading
 import time
 from copy import deepcopy
 
+import feedparser
+import requests
 import tmdbsimple as tmdb
-from pymediainfo import MediaInfo
 
 ###################################
 #############VARIABLE##############
@@ -1074,7 +1073,6 @@ class Episode:
 
     def __init__(self, path) -> None:
         self.path = path
-        self.media_info = MediaInfo.parse(self.path)
 
     def __repr__(self) -> str:
 
@@ -1231,7 +1229,7 @@ class File():
     def determine_source(self) -> str:
         """return the source of a video from it's file name"""
         title, source = self.file_name, ""
-        if "[" in title and "]" in title:
+        if "[" == title[0] and "]" in title:
             while title[0] != "[":
                 title = title[1:]
             title = title[1:]
@@ -1745,13 +1743,11 @@ def check_judas() -> None:
             if "Movie" in ["Movie" for i in judas_lib[anime] if "Movie" in i]:
                 pass
             elif have_judas(anime) != True:
-
                 liste_ep = []
                 for dir in judas_lib[anime]:
                     if "One Piece" in dir:
                         pass
                     elif os.path.isdir(dir):
-
                         if judas_is_vostfr(dir) == True:
                             print(f"{anime} matching")
                             print("Searching for episode with better encode ...")
