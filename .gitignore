@@ -26,3 +26,4 @@ mkvinfo.exe
 server.conf
 *.mkv
 *.txt
+API.py
