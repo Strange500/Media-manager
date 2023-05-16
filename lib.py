@@ -9,8 +9,9 @@ import time
 import feedparser
 import requests
 import tmdbsimple as tmdb
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from pymediainfo import MediaInfo
+from werkzeug.utils import secure_filename
 
 if platform.system() == "Windows":
     import ctypes
@@ -1114,6 +1115,7 @@ class web_API(Server):
         self.db = db
 
         self.app = Flask(__name__)
+        self.app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024 * 1024  # 10GB limit
 
         @self.app.route("/anime/list")
         def get_anime():
@@ -1138,6 +1140,68 @@ class web_API(Server):
         @self.app.route("/movie/dirs")
         def get_movie_dirs():
             return jsonify(self.db.movie_dirs)
+
+        @self.app.route('/torrent/upload', methods=['POST'])
+        def upload_torrent():
+            self.app.config['UPLOAD_FOLDER'] = self.conf["torrent_dir"]
+            return upload_file(self.app)
+
+        @self.app.route('/anime/upload', methods=['POST'])
+        def upload_anime():
+            upload_folder = self.conf['sorter_anime_dir']
+            file = request.files['file']
+            return upload_large_file(file, upload_folder)
+
+        @self.app.route('/show/upload', methods=['POST'])
+        def upload_show():
+            upload_folder = self.conf['sorter_show_dir']
+            file = request.files['file']
+            return upload_large_file(file, upload_folder)
+
+        @self.app.route('/movie/upload', methods=['POST'])
+        def upload_movie():
+            upload_folder = self.conf['sorter_movie_dir']
+            file = request.files['file']
+            return upload_large_file(file, upload_folder)
+
+        @self.app.route('/alive')
+        def alive():
+            return jsonify(True)
+
+        @self.app.route('/db/space')
+        def space():
+            ...
+
+        @self.app.route('/restart')
+        def restart():
+            os.system(REBOOT)
+            return jsonify({"status": "ok"})
+
+        def upload_large_file(file, upload_folder):
+            chunk_size = 8192  # Chunk size for streaming, adjust as needed
+
+            if file:
+                filename = secure_filename(file.filename)
+                filepath = os.path.join(upload_folder, filename)
+
+                with open(filepath, 'wb') as f:
+                    while True:
+                        chunk = file.stream.read(chunk_size)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+
+                return 'File uploaded successfully'
+
+            return 'No file uploaded'
+
+        def upload_file(app: Flask):
+            file = request.files['file']
+            if file:
+                filename = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                return 'File uploaded successfully'
+            return 'No file uploaded'
 
     def run(self):
         self.app.run()
