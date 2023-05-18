@@ -4,17 +4,21 @@ import os
 import platform
 import shutil
 import subprocess
+import threading
 import time
 
 import feedparser
+import psutil
+import pythoncom
 import requests
 import tmdbsimple as tmdb
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, abort
+from flask_cors import CORS
 from pymediainfo import MediaInfo
 from werkzeug.utils import secure_filename
 
 if platform.system() == "Windows":
-    import ctypes
+    import ctypes, wmi
 
     PYTHON = "python"
     NTERM = "start"
@@ -35,6 +39,8 @@ TMDB_DB = os.path.join("lib", "tmdb_db.json")
 RSS_ANIME = "rss_anime.dat"
 RSS_MOVIE = "rss_movie.dat"
 RSS_SHOW = "rss_show.dat"
+QUERY_SHOW = "query_show.dat"
+QUERY_MOVIE = "guery_movie.dat"
 
 
 def safe_move(src, dst, max_retries=5, retry_delay=2):
@@ -99,6 +105,36 @@ def get_free_space(path):
         st = os.statvfs(path)
         # Return the free space in bytes
         return st.f_bavail * st.f_frsize
+
+
+def get_directory_size(directory):
+    total_size = 0
+
+    for dirpath, dirnames, filenames in os.walk(directory):
+        for filename in filenames:
+            filepath = os.path.join(dirpath, filename)
+            total_size += os.path.getsize(filepath)
+
+    return total_size
+
+
+def get_dir_and_free(dir):
+    dic = {"used": get_directory_size(dir),
+           "free": get_free_space(dir)
+           }
+    return dic
+
+
+def get_total_free_and_used(list_dir: list | str) -> dict:
+    dic = {"used": 0, "free": 0}
+    if type(list_dir) == str:
+        return get_dir_and_free(list_dir)
+    else:
+        for dir in list_dir:
+            d = get_dir_and_free(dir)
+            dic["used"] += d["used"]
+            dic["free"] += d["free"]
+        return dic
 
 
 def get_path_with_most_free_space(paths: str | list):
@@ -327,7 +363,9 @@ class Server():
             self.tmdb_db = json.load(open(os.path.join(VAR_DIR, TMDB_DB), "r", encoding="utf-8"))
 
     def check_system_files(self):
-        list_file = [ANIME_LIB, MOVIES_LIB, SHOWS_LIB, CONF_FILE, TMDB_TITLE, TMDB_DB, RSS_SHOW, RSS_ANIME, RSS_MOVIE]
+        list_file = [ANIME_LIB, QUERY_MOVIE, QUERY_SHOW, MOVIES_LIB, SHOWS_LIB, CONF_FILE, TMDB_TITLE, TMDB_DB,
+                     RSS_SHOW, RSS_ANIME,
+                     RSS_MOVIE]
         for file in list_file:
             path = os.path.join(VAR_DIR, file)
             if os.path.isfile(path) and check_json(path):
@@ -779,7 +817,8 @@ def choose_best_version(v_cur: Episode, v_new: Sorter) -> Sorter | Episode:
 
 class DataBase(Server):
     def __init__(self):
-        super().__init__()
+        super().__init__(enable=True)
+        super().check_system_files()
         self.shows_dirs = self.conf["shows_dir"]
         self.anime_dirs = self.conf["anime_dir"]
         self.movie_dirs = self.conf["movie_dir"]
@@ -1113,9 +1152,12 @@ class web_API(Server):
     def __init__(self, db: DataBase):
         super().__init__()
         self.db = db
+        self.cpu_avg = 0
+        self.cpu_temp_list = []
 
         self.app = Flask(__name__)
         self.app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024 * 1024  # 10GB limit
+        CORS(self.app)
 
         @self.app.route("/anime/list")
         def get_anime():
@@ -1170,12 +1212,85 @@ class web_API(Server):
 
         @self.app.route('/db/space')
         def space():
-            ...
+            for list_dir in self.db.movie_dirs:
+                return jsonify()
 
         @self.app.route('/restart')
         def restart():
             os.system(REBOOT)
             return jsonify({"status": "ok"})
+
+        @self.app.route("/movie/size")
+        def movie_size():
+            return jsonify(get_total_free_and_used(self.db.movie_dirs))
+
+        @self.app.route("/show/size")
+        def show_size():
+            return jsonify(get_total_free_and_used(self.db.shows_dirs))
+
+        @self.app.route("/anime/size")
+        def anime_size():
+            return jsonify(get_total_free_and_used(self.db.anime_dirs))
+
+        @self.app.route("/movie/nb")
+        def movie_nb():
+            return jsonify({"value": len(self.db.movies)})
+
+        @self.app.route("/show/nb")
+        def show_nb():
+            return jsonify({"value": len(self.db.shows)})
+
+        @self.app.route("/anime/nb")
+        def anime_nb():
+            return jsonify({"value": len(self.db.animes)})
+
+        @self.app.route("/cpu_temp/current")
+        def cpu_temp():
+            pythoncom.CoInitialize()
+            if platform.system() == "Linux":
+                return jsonify({"value": psutil.sensors_temperatures()["k10temp"][0].current})
+            else:
+                w = wmi.WMI(namespace="root\OpenHardwareMonitor")
+                temperature_infos = w.Sensor()
+                for sensor in temperature_infos:
+
+                    if sensor.SensorType == u'Temperature' and sensor.name == "CPU Package":
+                        return jsonify({"value": sensor.value})
+
+        @self.app.route("/cpu_temp/avg")
+        def cpu_avg():
+            self.update_cpu_avg()
+            return jsonify({"value": self.cpu_avg})
+
+        @self.app.route("/tmdb/search", methods=['POST'])
+        def seach_tmdb_show():
+            if request.method == 'POST':
+                if request.form.get("choice") in ["anime", "show"]:
+                    self.search.tv(query=request.form.get("search"))
+                    print(self.search.results)
+                    return jsonify({"results": self.search.results})
+                elif request.form.get("choice") == "movie":
+                    self.search.movie(query=request.form.get("search"))
+                    return jsonify({"results": self.search.results})
+
+        @self.app.route("/request/show", methods=['POST'])
+        def add_show():
+            if request.method == "POST":
+                if request.form.get("id") == "0":
+                    abort(400)
+                if type(request.form.get("id")) == str and request.form.get("id").isnumeric():
+                    if request.form.get("choice") in ["anime", "show"]:
+                        open(os.path.join(VAR_DIR, QUERY_SHOW), "a").write(request.form.get("id") + "\n")
+                        return "ok"
+                    elif request.form.get("choice") == "movie":
+                        open(os.path.join(VAR_DIR, QUERY_MOVIE), "a").write(request.form.get("id") + "\n")
+                        return "ok"
+                    else:
+                        abort(400)
+                else:
+                    abort(400)
+            else:
+                abort(400)
 
         def upload_large_file(file, upload_folder):
             chunk_size = 8192  # Chunk size for streaming, adjust as needed
@@ -1204,21 +1319,52 @@ class web_API(Server):
             return 'No file uploaded'
 
     def run(self):
+
         self.app.run()
+
+    def update_cpu_temp(self):
+        if platform.system() == "Linux":
+            self.cpu_temp_list.append(psutil.sensors_temperatures()["k10temp"][0].current)
+        else:
+            w = wmi.WMI(namespace="root\OpenHardwareMonitor")
+            temperature_infos = w.Sensor()
+            for sensor in temperature_infos:
+
+                if sensor.SensorType == u'Temperature' and sensor.name == "CPU Package":
+                    self.cpu_temp_list.append(sensor.value)
+
+    def update_cpu_avg(self):
+        self.cpu_avg = round(sum(self.cpu_temp_list) / len(self.cpu_temp_list), 2)
+
+
+class deploy_serv():
+
+    def __init__(self):
+        self.db = DataBase()
+        self.web_api = web_API(self.db)
+
+    def start(self):
+        try:
+
+            api = threading.Thread(target=self.web_api.run)
+            api.start()
+
+            db = threading.Thread(target=self.db.serve_forever)
+            db.start()
+
+            while True:
+                if len(self.web_api.cpu_temp_list) > 120:
+                    self.web_api.cpu_temp_list = []
+                self.web_api.update_cpu_temp()
+                time.sleep(30)
+        except KeyboardInterrupt:
+            print("Shutting Down")
 
 
 def main():
-    Server(enable=False).check_system_files()
-    db = DataBase()
-    # feed = Feed()
-    # print(feed.feed_dict)
-    # feed.dl_torrent()
-    # pprint(feed.feed_dict)
-    # print(db.find("naruto", anime=True).delete_season(1))
-    # db.sort(anime=True)
-    # print(db.find("naruto", anime=True))
-    API = web_API(db)
-    API.run()
+    server = deploy_serv()
+
+    server.start()
 
     # db.serve_forever()
 
