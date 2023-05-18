@@ -16,3 +16,5 @@ This server allow you to manage your Anime/Show/Movie. Here is a list of what it
 you will need python 3.8 or newer, you will need several depencies<br>
 <code>pip install  feedparser, psutil, requests, tmdbsimple, flask, flask_cors, pymediainfo
 </code>
+<br> <p> You will need to correctly configure the server, download server.conf and replace path according to instructions in (directories are not created automatically please create them before starting server (server will crash otherwise)</p> <br>
+<p>By default the server stock its data on windows in <code>AppData\Local\my-server</code> and on Linux <code>/var/lib/my-server</code>. But you can change it by changing <code>VAR_DIR</code> in lib.py by the path you want
