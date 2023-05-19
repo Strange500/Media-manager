@@ -1,4 +1,4 @@
-# Shows-Sorter
+# Media manager
 An automated sorter (Rename/Sort/Manage Database)
 WORK IN PROGRESS
 <hr>
