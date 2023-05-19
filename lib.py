@@ -6,10 +6,9 @@ import shutil
 import subprocess
 import threading
 import time
-
+import pythoncom
 import feedparser
 import psutil
-import pythoncom
 import requests
 import tmdbsimple as tmdb
 from flask import Flask, jsonify, request, abort
@@ -330,6 +329,15 @@ class Server():
                 else:
                     raise ValueError(
                         f"The value of Clip in {os.path.join(VAR_DIR, CONF_FILE)} have to be TRUE or FALSE")
+            if config["Downloader"]:
+                if config["Downloader"] == "FALSE":
+                    config.pop("download_dir")
+                    config.pop("torrent_dir")
+                elif config["Downloader"] == "TRUE":
+                    pass
+                else:
+                    raise ValueError(
+                        f"The value of Downloader in {os.path.join(VAR_DIR, CONF_FILE)} have to be TRUE or FALSE")
 
             for key in config:
                 if "dir" in key:
@@ -391,6 +399,8 @@ class Server():
     def update_tmdb_db(self, title, n_item):
         self.tmdb_db[title] = n_item
         json.dump(self.tmdb_db, open(os.path.join(VAR_DIR, TMDB_DB), "w", encoding="utf-8"), indent=5)
+
+
 
 
 class Show(Server):
@@ -1291,6 +1301,7 @@ class web_API(Server):
                     abort(400)
             else:
                 abort(400)
+
 
         def upload_large_file(file, upload_folder):
             chunk_size = 8192  # Chunk size for streaming, adjust as needed
