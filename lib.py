@@ -42,7 +42,7 @@ QUERY_SHOW = "query_show.dat"
 QUERY_MOVIE = "guery_movie.dat"
 
 
-def safe_move(src, dst, max_retries=5, retry_delay=2):
+def safe_move(src, dst, max_retries=2, retry_delay=1):
     retries = 0
     while retries < max_retries:
         try:
@@ -1007,6 +1007,7 @@ class DataBase(Server):
             dir = self.to_sort_movie
         if type(dir) == str:
             for file in os.listdir(dir):
+                print(file)
                 path = os.path.join(dir, file)
                 if os.path.isfile(path):
                     try:
@@ -1037,22 +1038,22 @@ class DataBase(Server):
     def serve_forever(self):
         try:
             while True:
-                if type(self.anime_dirs) == str and os.listdir(self.anime_dirs) != []:
+                if type(self.to_sort_anime) == str and os.listdir(self.to_sort_anime) != []:
                     self.sort(anime=True)
-                elif type(self.anime_dirs) == list:
-                    for dir in self.anime_dirs:
+                elif type(self.to_sort_anime) == list:
+                    for dir in self.to_sort_anime:
                         if os.listdir(dir) != []:
                             self.sort(anime=True)
-                if type(self.shows_dirs) == str and os.listdir(self.shows_dirs) != []:
+                if type(self.to_sort_show) == str and os.listdir(self.to_sort_show) != []:
                     self.sort(shows=True)
-                elif type(self.shows_dirs) == list:
-                    for dir in self.shows_dirs:
+                elif type(self.to_sort_show) == list:
+                    for dir in self.to_sort_show:
                         if os.listdir(dir) != []:
                             self.sort(shows=True)
-                if type(self.movie_dirs) == str and os.listdir(self.movie_dirs) != []:
+                if type(self.to_sort_movie) == str and os.listdir(self.to_sort_movie) != []:
                     self.sort(movie=True)
-                elif type(self.movie_dirs) == list:
-                    for dir in self.movie_dirs:
+                elif type(self.to_sort_movie) == list:
+                    for dir in self.to_sort_movie:
                         if os.listdir(dir) != []:
                             self.sort(shows=True)
                 time.sleep(5)
