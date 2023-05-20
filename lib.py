@@ -43,19 +43,20 @@ QUERY_MOVIE = "guery_movie.dat"
 
 
 def safe_move(src, dst, max_retries=2, retry_delay=1):
-    retries = 0
-    while retries < max_retries:
-        try:
-            shutil.move(src, dst)
-            if os.path.isfile(src):
-                os.remove(src)
-            return True
-        except PermissionError:
-            retries += 1
-            time.sleep(retry_delay)
-        except RuntimeError:
-            retries += 1
-            time.sleep(retry_delay)
+    if not is_video(src):
+        retries = 0
+        while retries < max_retries:
+            try:
+                shutil.move(src, dst)
+                if os.path.isfile(src):
+                    os.remove(src)
+                return True
+            except PermissionError:
+                retries += 1
+                time.sleep(retry_delay)
+            except RuntimeError:
+                retries += 1
+                time.sleep(retry_delay)
     return False
 
 
@@ -1007,9 +1008,8 @@ class DataBase(Server):
             dir = self.to_sort_movie
         if type(dir) == str:
             for file in os.listdir(dir):
-                print(file)
                 path = os.path.join(dir, file)
-                if os.path.isfile(path):
+                if os.path.isfile(path) and is_video(path):
                     try:
                         s = Sorter(path, movie)
                         self.add_file(s, anime, shows, movie)
@@ -1023,7 +1023,7 @@ class DataBase(Server):
             for dirs in dir:
                 for file in os.listdir(dirs):
                     path = os.path.join(dirs, file)
-                    if os.path.isfile(path):
+                    if os.path.isfile(path) and is_video(path):
                         try:
                             s = Sorter(path, movie)
                             self.add_file(s, anime, shows, movie)
