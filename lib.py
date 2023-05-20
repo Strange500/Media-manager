@@ -851,19 +851,46 @@ class DataBase(Server):
         except IOError as e:
             log(f"can't acces to {MOVIES_LIB}", error=True)
             quit()
+        self.check_database()
+    def check_database(self):
+        """check if all information from self.shows/anime/movies are correct (dir exist)"""
+        ls = self.animes.copy()
+        for media in self.animes:
+            if not os.path.isdir(self.animes[media]):
+                ls.pop(media)
+        self.animes = ls.copy()
+        json.dump(self.animes, open(os.path.join(VAR_DIR, ANIME_LIB), "w", encoding="utf-8"), indent=5)
+        ls.clear()
+        ls = self.shows.copy()
+        for media in self.shows:
+            if not os.path.isdir(self.shows[media]):
+                ls.pop(media)
+        self.shows = ls.copy()
+        json.dump(self.shows, open(os.path.join(VAR_DIR, SHOWS_LIB), "w", encoding="utf-8"), indent=5)
+        ls.clear()
+        ls = self.movies.copy()
+        for media in self.movies:
+            if not os.path.isdir(self.movies[media]):
+                ls.pop(media)
+        self.movies = ls.copy()
+        json.dump(self.movies, open(os.path.join(VAR_DIR, MOVIES_LIB), "w", encoding="utf-8"), indent=5)
+
+
+
 
     def var(self, anime=False, shows=False, movie=False) -> tuple[dict, Anime | Show | Movie, list, str]:
-        if (anime):
+        self.check_database()
+        if anime:
             dic = self.animes
             r = Anime
             dirs = self.conf["anime_dir"]
             lib = ANIME_LIB
-        elif (shows):
+        elif shows:
             dic = self.shows
             r = Show
             dirs = self.conf["shows_dir"]
             lib = SHOWS_LIB
-        elif (movie):
+        elif movie:
             dic = self.movies
             r = Movie
             dirs = self.conf["movie_dir"]
@@ -995,7 +1022,7 @@ class DataBase(Server):
         elt = self.find(title, anime, shows, movie)
         if elt != False and os.path.isdir(elt.path):
             elt.delete()
-            self.update_lib(title, None, delete=True)
+            self.update_lib(title, None,anime, shows, movie, delete=True)
             return True
         return False
 
