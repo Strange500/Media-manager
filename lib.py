@@ -6,10 +6,9 @@ import shutil
 import subprocess
 import threading
 import time
-
+import pythoncom
 import feedparser
 import psutil
-import pythoncom
 import requests
 import tmdbsimple as tmdb
 from flask import Flask, jsonify, request, abort
@@ -43,20 +42,21 @@ QUERY_SHOW = "query_show.dat"
 QUERY_MOVIE = "guery_movie.dat"
 
 
-def safe_move(src, dst, max_retries=5, retry_delay=2):
-    retries = 0
-    while retries < max_retries:
-        try:
-            shutil.move(src, dst)
-            if os.path.isfile(src):
-                os.remove(src)
-            return True
-        except PermissionError:
-            retries += 1
-            time.sleep(retry_delay)
-        except RuntimeError:
-            retries += 1
-            time.sleep(retry_delay)
+def safe_move(src, dst, max_retries=2, retry_delay=1):
+    if not is_video(src):
+        retries = 0
+        while retries < max_retries:
+            try:
+                shutil.move(src, dst)
+                if os.path.isfile(src):
+                    os.remove(src)
+                return True
+            except PermissionError:
+                retries += 1
+                time.sleep(retry_delay)
+            except RuntimeError:
+                retries += 1
+                time.sleep(retry_delay)
     return False
 
 
@@ -330,6 +330,15 @@ class Server():
                 else:
                     raise ValueError(
                         f"The value of Clip in {os.path.join(VAR_DIR, CONF_FILE)} have to be TRUE or FALSE")
+            if config["Downloader"]:
+                if config["Downloader"] == "FALSE":
+                    config.pop("download_dir")
+                    config.pop("torrent_dir")
+                elif config["Downloader"] == "TRUE":
+                    pass
+                else:
+                    raise ValueError(
+                        f"The value of Downloader in {os.path.join(VAR_DIR, CONF_FILE)} have to be TRUE or FALSE")
 
             for key in config:
                 if "dir" in key:
@@ -391,6 +400,8 @@ class Server():
     def update_tmdb_db(self, title, n_item):
         self.tmdb_db[title] = n_item
         json.dump(self.tmdb_db, open(os.path.join(VAR_DIR, TMDB_DB), "w", encoding="utf-8"), indent=5)
+
+
 
 
 class Show(Server):
@@ -479,7 +490,7 @@ class Sorter(Server):
         self.is_movie = is_movie
         self.path = file_path
         self.file_name = os.path.basename(self.path)
-        self.clean_file_name = os.path.splitext(self.file_name)[0].replace(".", " ")  # get file name with no extension
+        self.clean_file_name = os.path.splitext(self.file_name)[0].replace(".", " ").replace("_", " ")  # get file name with no extension
         if not is_movie:
             self.source = self.determine_source()
         self.ext = os.path.splitext(self.file_name)[1]
@@ -840,19 +851,46 @@ class DataBase(Server):
         except IOError as e:
             log(f"can't acces to {MOVIES_LIB}", error=True)
             quit()
+        self.check_database()
+    def check_database(self):
+        """check if all information from self.shows/anime/movies are correct (dir exist)"""
+        ls = self.animes.copy()
+        for media in self.animes:
+            if not os.path.isdir(self.animes[media]):
+                ls.pop(media)
+        self.animes = ls.copy()
+        json.dump(self.animes, open(os.path.join(VAR_DIR, ANIME_LIB), "w", encoding="utf-8"), indent=5)
+        ls.clear()
+        ls = self.shows.copy()
+        for media in self.shows:
+            if not os.path.isdir(self.shows[media]):
+                ls.pop(media)
+        self.shows = ls.copy()
+        json.dump(self.shows, open(os.path.join(VAR_DIR, SHOWS_LIB), "w", encoding="utf-8"), indent=5)
+        ls.clear()
+        ls = self.movies.copy()
+        for media in self.movies:
+            if not os.path.isdir(self.movies[media]):
+                ls.pop(media)
+        self.movies = ls.copy()
+        json.dump(self.movies, open(os.path.join(VAR_DIR, MOVIES_LIB), "w", encoding="utf-8"), indent=5)
+
+
+
 
     def var(self, anime=False, shows=False, movie=False) -> tuple[dict, Anime | Show | Movie, list, str]:
-        if (anime):
+        self.check_database()
+        if anime:
             dic = self.animes
             r = Anime
             dirs = self.conf["anime_dir"]
             lib = ANIME_LIB
-        elif (shows):
+        elif shows:
             dic = self.shows
             r = Show
             dirs = self.conf["shows_dir"]
             lib = SHOWS_LIB
-        elif (movie):
+        elif movie:
             dic = self.movies
             r = Movie
             dirs = self.conf["movie_dir"]
@@ -984,7 +1022,7 @@ class DataBase(Server):
         elt = self.find(title, anime, shows, movie)
         if elt != False and os.path.isdir(elt.path):
             elt.delete()
-            self.update_lib(title, None, delete=True)
+            self.update_lib(title, None,anime, shows, movie, delete=True)
             return True
         return False
 
@@ -998,7 +1036,7 @@ class DataBase(Server):
         if type(dir) == str:
             for file in os.listdir(dir):
                 path = os.path.join(dir, file)
-                if os.path.isfile(path):
+                if os.path.isfile(path) and is_video(path):
                     try:
                         s = Sorter(path, movie)
                         self.add_file(s, anime, shows, movie)
@@ -1012,7 +1050,7 @@ class DataBase(Server):
             for dirs in dir:
                 for file in os.listdir(dirs):
                     path = os.path.join(dirs, file)
-                    if os.path.isfile(path):
+                    if os.path.isfile(path) and is_video(path):
                         try:
                             s = Sorter(path, movie)
                             self.add_file(s, anime, shows, movie)
@@ -1027,22 +1065,22 @@ class DataBase(Server):
     def serve_forever(self):
         try:
             while True:
-                if type(self.anime_dirs) == str and os.listdir(self.anime_dirs) != []:
+                if type(self.to_sort_anime) == str and os.listdir(self.to_sort_anime) != []:
                     self.sort(anime=True)
-                elif type(self.anime_dirs) == list:
-                    for dir in self.anime_dirs:
+                elif type(self.to_sort_anime) == list:
+                    for dir in self.to_sort_anime:
                         if os.listdir(dir) != []:
                             self.sort(anime=True)
-                if type(self.shows_dirs) == str and os.listdir(self.shows_dirs) != []:
+                if type(self.to_sort_show) == str and os.listdir(self.to_sort_show) != []:
                     self.sort(shows=True)
-                elif type(self.shows_dirs) == list:
-                    for dir in self.shows_dirs:
+                elif type(self.to_sort_show) == list:
+                    for dir in self.to_sort_show:
                         if os.listdir(dir) != []:
                             self.sort(shows=True)
-                if type(self.movie_dirs) == str and os.listdir(self.movie_dirs) != []:
+                if type(self.to_sort_movie) == str and os.listdir(self.to_sort_movie) != []:
                     self.sort(movie=True)
-                elif type(self.movie_dirs) == list:
-                    for dir in self.movie_dirs:
+                elif type(self.to_sort_movie) == list:
+                    for dir in self.to_sort_movie:
                         if os.listdir(dir) != []:
                             self.sort(shows=True)
                 time.sleep(5)
@@ -1188,23 +1226,7 @@ class web_API(Server):
             self.app.config['UPLOAD_FOLDER'] = self.conf["torrent_dir"]
             return upload_file(self.app)
 
-        @self.app.route('/anime/upload', methods=['POST'])
-        def upload_anime():
-            upload_folder = self.conf['sorter_anime_dir']
-            file = request.files['file']
-            return upload_large_file(file, upload_folder)
 
-        @self.app.route('/show/upload', methods=['POST'])
-        def upload_show():
-            upload_folder = self.conf['sorter_show_dir']
-            file = request.files['file']
-            return upload_large_file(file, upload_folder)
-
-        @self.app.route('/movie/upload', methods=['POST'])
-        def upload_movie():
-            upload_folder = self.conf['sorter_movie_dir']
-            file = request.files['file']
-            return upload_large_file(file, upload_folder)
 
         @self.app.route('/alive')
         def alive():
@@ -1292,10 +1314,30 @@ class web_API(Server):
             else:
                 abort(400)
 
+        @self.app.route('/upload', methods=['POST',"OPTIONS"])
+        def upload_file():
+            if 'file' not in request.files:
+                return "Aucun fichier n'a été sélectionné", 400
+
+            file = request.files['file']
+            if file.filename == '':
+                return "Le nom de fichier est vide", 400
+            ch = request.form.get("up_choice")
+            print(ch)
+            if ch == "anime":
+                dir_save = self.db.to_sort_anime
+            elif ch == "show":
+                dir_save = self.db.to_sort_show
+            elif ch == "movie":
+                dir_save = self.db.to_sort_movie
+            file.save(os.path.join(dir_save, secure_filename(file.filename)))
+
+            return "Téléchargement réussi"
+
         def upload_large_file(file, upload_folder):
             chunk_size = 8192  # Chunk size for streaming, adjust as needed
-
             if file:
+
                 filename = secure_filename(file.filename)
                 filepath = os.path.join(upload_folder, filename)
 
