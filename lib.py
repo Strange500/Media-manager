@@ -490,7 +490,7 @@ class Sorter(Server):
         self.is_movie = is_movie
         self.path = file_path
         self.file_name = os.path.basename(self.path)
-        self.clean_file_name = os.path.splitext(self.file_name)[0].replace(".", " ")  # get file name with no extension
+        self.clean_file_name = os.path.splitext(self.file_name)[0].replace(".", " ").replace("_", " ")  # get file name with no extension
         if not is_movie:
             self.source = self.determine_source()
         self.ext = os.path.splitext(self.file_name)[1]
@@ -1226,23 +1226,7 @@ class web_API(Server):
             self.app.config['UPLOAD_FOLDER'] = self.conf["torrent_dir"]
             return upload_file(self.app)
 
-        @self.app.route('/anime/upload', methods=['POST'])
-        def upload_anime():
-            upload_folder = self.conf['sorter_anime_dir']
-            file = request.files['file']
-            return upload_large_file(file, upload_folder)
 
-        @self.app.route('/show/upload', methods=['POST'])
-        def upload_show():
-            upload_folder = self.conf['sorter_show_dir']
-            file = request.files['file']
-            return upload_large_file(file, upload_folder)
-
-        @self.app.route('/movie/upload', methods=['POST'])
-        def upload_movie():
-            upload_folder = self.conf['sorter_movie_dir']
-            file = request.files['file']
-            return upload_large_file(file, upload_folder)
 
         @self.app.route('/alive')
         def alive():
@@ -1330,11 +1314,30 @@ class web_API(Server):
             else:
                 abort(400)
 
+        @self.app.route('/upload', methods=['POST',"OPTIONS"])
+        def upload_file():
+            if 'file' not in request.files:
+                return "Aucun fichier n'a été sélectionné", 400
+
+            file = request.files['file']
+            if file.filename == '':
+                return "Le nom de fichier est vide", 400
+            ch = request.form.get("up_choice")
+            print(ch)
+            if ch == "anime":
+                dir_save = self.db.to_sort_anime
+            elif ch == "show":
+                dir_save = self.db.to_sort_show
+            elif ch == "movie":
+                dir_save = self.db.to_sort_movie
+            file.save(os.path.join(dir_save, secure_filename(file.filename)))
+
+            return "Téléchargement réussi"
 
         def upload_large_file(file, upload_folder):
             chunk_size = 8192  # Chunk size for streaming, adjust as needed
-
             if file:
+
                 filename = secure_filename(file.filename)
                 filepath = os.path.join(upload_folder, filename)
 
