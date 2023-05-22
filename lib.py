@@ -1341,24 +1341,6 @@ class web_API(Server):
 
             return "Téléchargement réussi"
 
-        def upload_large_file(file, upload_folder):
-            chunk_size = 8192  # Chunk size for streaming, adjust as needed
-            if file:
-
-                filename = secure_filename(file.filename)
-                filepath = os.path.join(upload_folder, filename)
-
-                with open(filepath, 'wb') as f:
-                    while True:
-                        chunk = file.stream.read(chunk_size)
-                        if not chunk:
-                            break
-                        f.write(chunk)
-
-                return 'File uploaded successfully'
-
-            return 'No file uploaded'
-
         def upload_file(app: Flask):
             file = request.files['file']
             if file:
@@ -1368,7 +1350,6 @@ class web_API(Server):
             return 'No file uploaded'
 
     def run(self):
-
         self.app.run()
 
     def update_cpu_temp(self):
@@ -1394,7 +1375,6 @@ class deploy_serv():
 
     def start(self):
         try:
-
             api = threading.Thread(target=self.web_api.run)
             api.start()
 
