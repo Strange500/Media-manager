@@ -1321,7 +1321,7 @@ class web_API(Server):
             else:
                 abort(400)
 
-        @self.app.route('/upload', methods=['POST', "OPTIONS"])
+        @self.app.route('/upload', methods=['POST',"OPTIONS"])
         def upload_file():
             if 'file' not in request.files:
                 return "Aucun fichier n'a été sélectionné", 400
