@@ -1,8 +1,0 @@
-anime_dir : path_to_anime_lib, (separate each path by ',')
-movie_dir : path_to_movie_lib, 
-serv_dir : main_path_of_server
-download_path : path_of_downloaded_file, 
-sorter_anime_dir : path_to_sorter, (path to dir where un sorted file are please keep the , after the first path)
-clip_load : tem_dir (same as clip_lib)
-clip_lib : path_to_music_lib (write nothing if no music lib)
-temp : path_to_temp_dir (create a random dir to stock temporary file

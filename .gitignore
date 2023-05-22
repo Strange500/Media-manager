@@ -15,3 +15,15 @@ __pycache__/json_API.cpython-311.pyc
 *.pyc
 *.magnet
 rss_ygg.py
+mkvextract.exe
+mkvinfo.exe
+*.exe
+*.conf
+*.dat
+*.conf
+*.conf
+*.crdownload
+server.conf
+*.mkv
+*.txt
+API.py
