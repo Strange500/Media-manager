@@ -6,9 +6,10 @@ import shutil
 import subprocess
 import threading
 import time
-import pythoncom
+
 import feedparser
 import psutil
+import pythoncom
 import requests
 import tmdbsimple as tmdb
 from flask import Flask, jsonify, request, abort
@@ -40,6 +41,10 @@ RSS_MOVIE = "rss_movie.dat"
 RSS_SHOW = "rss_show.dat"
 QUERY_SHOW = "query_show.dat"
 QUERY_MOVIE = "guery_movie.dat"
+
+
+def compare_dictionaries(dict1, dict2):
+    return sorted(dict1.items()) == sorted(dict2.items())
 
 
 def safe_move(src, dst, max_retries=2, retry_delay=1):
@@ -363,13 +368,16 @@ class Server():
             print(e)
             quit()
 
+    tmdb_db = json.load(open(os.path.join(VAR_DIR, TMDB_DB), "r", encoding="utf-8"))
+    tmdb_title = [i.replace("\n", "").split(" : ") for i in
+                  open(os.path.join(VAR_DIR, TMDB_TITLE), "r", encoding="utf-8")]
+    conf = load_config()
+
     def __init__(self, enable=True):
         if enable:
-            self.conf = Server.load_config()
-            tmdb.API_KEY = self.conf["TMDB_API_KEY"]
+            tmdb.API_KEY = Server.conf["TMDB_API_KEY"]
             tmdb.REQUESTS_TIMEOUT = 5
             self.search = tmdb.Search()
-            self.tmdb_db = json.load(open(os.path.join(VAR_DIR, TMDB_DB), "r", encoding="utf-8"))
 
     def check_system_files(self):
         list_file = [ANIME_LIB, QUERY_MOVIE, QUERY_SHOW, MOVIES_LIB, SHOWS_LIB, CONF_FILE, TMDB_TITLE, TMDB_DB,
@@ -387,21 +395,18 @@ class Server():
                     open(path, "w")
 
     def get_file(self):
-        for file in self.conf["temp_dir"]:
-            path = os.path.join(self.conf["temp_dir"], file)
+        for file in Server.conf["temp_dir"]:
+            path = os.path.join(Server.conf["temp_dir"], file)
             if os.path.isdir(path):
                 if "anime" in file:
-                    extract_files(path, self.conf["sorter_anime_dir"])
+                    extract_files(path, Server.conf["sorter_anime_dir"])
                 elif "movie" in file:
-                    extract_files(path, self.conf["sorter_movie_dir"])
+                    extract_files(path, Server.conf["sorter_movie_dir"])
                 elif "show" in file:
-                    extract_files(path, self.conf["sorter_show_dir"])
+                    extract_files(path, Server.conf["sorter_show_dir"])
 
     def update_tmdb_db(self, title, n_item):
-        self.tmdb_db[title] = n_item
-        json.dump(self.tmdb_db, open(os.path.join(VAR_DIR, TMDB_DB), "w", encoding="utf-8"), indent=5)
-
-
+        Server.tmdb_db[title] = n_item
 
 
 class Show(Server):
@@ -418,16 +423,16 @@ class Show(Server):
                 log(f"Can't determine the show named {title}", error=True)
         else:
             self.title = title
-            if not self.title in self.tmdb_db:
+            if not self.title in Server.tmdb_db:
+                print("here")
                 self.id = self.search.tv(query=title)
                 self.id = self.search.results[0]['id']
                 self.tmdb = tmdb.TV(self.id)
                 self.info = self.tmdb.info()
                 super().update_tmdb_db(self.title, self.info)
             else:
-                self.info = self.tmdb_db[title]
+                self.info = Server.tmdb_db[title]
                 self.id = self.info['id']
-                self.tmdb = tmdb.TV(self.id)
             self.seasons = self.list_season()
 
     def update_data(self):
@@ -486,7 +491,7 @@ class Anime(Show):
 
 class Sorter(Server):
     def __init__(self, file_path: str, is_movie=False, for_test=False):
-        super().__init__()
+        super().__init__(enable=False)  # Not needed
         self.is_movie = is_movie
         self.path = file_path
         self.file_name = os.path.basename(self.path)
@@ -748,16 +753,15 @@ class Movie(Server):
                 log(f"Can't determine the movie named {title}", error=True)
         else:
             self.title = title
-            if not self.title in self.tmdb_db:
+            if not self.title in Server.tmdb_db:
                 self.id = self.search.movie(query=title)
                 self.id = self.search.results[0]['id']
                 self.tmdb = tmdb.Movies(self.id)
                 self.info = self.tmdb.info()
                 super().update_tmdb_db(self.title, self.info)
             else:
-                self.info = self.tmdb_db[title]
+                self.info = Server.tmdb_db[title]
                 self.id = self.info['id']
-                self.tmdb = tmdb.Movies(self.id)
 
     def add(self, file: Sorter):
         if os.path.isfile(file.path):
@@ -830,12 +834,12 @@ class DataBase(Server):
     def __init__(self):
         super().__init__(enable=True)
         super().check_system_files()
-        self.shows_dirs = self.conf["shows_dir"]
-        self.anime_dirs = self.conf["anime_dir"]
-        self.movie_dirs = self.conf["movie_dir"]
-        self.to_sort_anime = self.conf["sorter_anime_dir"]
-        self.to_sort_show = self.conf["sorter_show_dir"]
-        self.to_sort_movie = self.conf["sorter_movie_dir"]
+        self.shows_dirs = Server.conf["shows_dir"]
+        self.anime_dirs = Server.conf["anime_dir"]
+        self.movie_dirs = Server.conf["movie_dir"]
+        self.to_sort_anime = Server.conf["sorter_anime_dir"]
+        self.to_sort_show = Server.conf["sorter_show_dir"]
+        self.to_sort_movie = Server.conf["sorter_movie_dir"]
         try:
             self.animes = json.load(open(os.path.join(VAR_DIR, ANIME_LIB), "r", encoding="utf-8"))
         except IOError as e:
@@ -852,69 +856,66 @@ class DataBase(Server):
             log(f"can't acces to {MOVIES_LIB}", error=True)
             quit()
         self.check_database()
+
     def check_database(self):
         """check if all information from self.shows/anime/movies are correct (dir exist)"""
         ls = self.animes.copy()
         for media in self.animes:
             if not os.path.isdir(self.animes[media]):
                 ls.pop(media)
-        self.animes = ls.copy()
-        json.dump(self.animes, open(os.path.join(VAR_DIR, ANIME_LIB), "w", encoding="utf-8"), indent=5)
+        if not compare_dictionaries(self.animes, ls):
+            self.animes = ls.copy()
+            json.dump(self.animes, open(os.path.join(VAR_DIR, ANIME_LIB), "w", encoding="utf-8"), indent=5)
         ls.clear()
         ls = self.shows.copy()
         for media in self.shows:
             if not os.path.isdir(self.shows[media]):
                 ls.pop(media)
-        self.shows = ls.copy()
-        json.dump(self.shows, open(os.path.join(VAR_DIR, SHOWS_LIB), "w", encoding="utf-8"), indent=5)
+        if not compare_dictionaries(self.shows, ls):
+            self.shows = ls.copy()
+            json.dump(self.shows, open(os.path.join(VAR_DIR, SHOWS_LIB), "w", encoding="utf-8"), indent=5)
         ls.clear()
         ls = self.movies.copy()
         for media in self.movies:
             if not os.path.isdir(self.movies[media]):
                 ls.pop(media)
-        self.movies = ls.copy()
-        json.dump(self.movies, open(os.path.join(VAR_DIR, MOVIES_LIB), "w", encoding="utf-8"), indent=5)
-
-
-
+        if not compare_dictionaries(self.movies, ls):
+            self.movies = ls.copy()
+            json.dump(self.movies, open(os.path.join(VAR_DIR, MOVIES_LIB), "w", encoding="utf-8"), indent=5)
 
     def var(self, anime=False, shows=False, movie=False) -> tuple[dict, Anime | Show | Movie, list, str]:
         self.check_database()
         if anime:
             dic = self.animes
             r = Anime
-            dirs = self.conf["anime_dir"]
+            dirs = Server.conf["anime_dir"]
             lib = ANIME_LIB
         elif shows:
             dic = self.shows
             r = Show
-            dirs = self.conf["shows_dir"]
+            dirs = Server.conf["shows_dir"]
             lib = SHOWS_LIB
         elif movie:
             dic = self.movies
             r = Movie
-            dirs = self.conf["movie_dir"]
+            dirs = Server.conf["movie_dir"]
             lib = MOVIES_LIB
         return (dic, r, dirs, lib)
 
     def find_tmdb_title(self, title: str, anime=False, shows=False, movie=False):
-        with open(os.path.join(VAR_DIR, TMDB_TITLE), "r", encoding="utf-8") as f:
-            for lines in f:
-                lines = lines.split(" : ")
-                if lines[0] == title:
-                    return lines[1].strip().replace("\n", "")
+        for couple in Server.tmdb_title:
+            if couple[0] == title:
+                return couple[1].strip()
         if anime or shows:
             self.search.tv(query=title)
         else:
             self.search.movie(query=title)
-            try:
-                with open(os.path.join(VAR_DIR, TMDB_TITLE), "a", encoding="utf-8") as f:
-                    f.write(f"{title} : {self.search.results[0]['name']}\n")
-                super().update_tmdb_db(self.search.results[0]["name"], self.search.results[0])
-                return self.search.results[0]["name"]
-            except IndexError as e:
-                log(f"No title found for {title}", warning=True)
-                return False
+        try:
+            super().update_tmdb_db(self.search.results[0]["name"], self.search.results[0])
+            return self.search.results[0]["name"]
+        except IndexError as e:
+            log(f"No title found for {title}", warning=True)
+            return False
 
     def find(self, title, anime=False, shows=False, movie=False, is_valid=False) -> Anime | Show | Movie | bool:
         dic, r, dirs, lib = self.var(anime, shows, movie)
@@ -1006,8 +1007,8 @@ class DataBase(Server):
                 st = "show"
             elif movie:
                 st = movie
-            os.makedirs(os.path.join(self.conf["errors_dir"], st), exist_ok=True)
-            safe_move(file.path, os.path.join(self.conf["errors_dir"], st))  # add to error directory for manual sort
+            os.makedirs(os.path.join(Server.conf["errors_dir"], st), exist_ok=True)
+            safe_move(file.path, os.path.join(Server.conf["errors_dir"], st))  # add to error directory for manual sort
         elif movie:
             elt.add(file)
         else:
@@ -1022,7 +1023,7 @@ class DataBase(Server):
         elt = self.find(title, anime, shows, movie)
         if elt != False and os.path.isdir(elt.path):
             elt.delete()
-            self.update_lib(title, None,anime, shows, movie, delete=True)
+            self.update_lib(title, None, anime, shows, movie, delete=True)
             return True
         return False
 
@@ -1099,6 +1100,13 @@ class DataBase(Server):
             return False
         return False
 
+    def save_tmdb_title(self):
+        with open(os.path.join(VAR_DIR, TMDB_TITLE), "w", encoding="utf-8") as f:
+            for i in range(len(Server.tmdb_title)):
+                Server.tmdb_title[i] = " : ".join(Server.tmdb_title[i])
+            text = "\n".join(Server.tmdb_title)
+            f.write(text)
+
 
 class Feed(DataBase):
 
@@ -1126,10 +1134,10 @@ class Feed(DataBase):
     def get_ep_with_link(self, feed: feedparser.FeedParserDict) -> dict:
         dicto = {}
         for entry in feed.entries:
-            for words in self.conf["select_words_rss"]:
+            for words in Server.conf["select_words_rss"]:
                 if words in entry.title:
                     dicto[entry.title] = entry.link
-            for words in self.conf["banned_words_rss"]:
+            for words in Server.conf["banned_words_rss"]:
                 if words not in entry.title:
                     dicto[entry.title] = entry.link
         return dicto
@@ -1173,10 +1181,10 @@ class Feed(DataBase):
             for feed in self.feed_dict[list_feed]:
                 for key in feed:
                     file_name = forbiden_car(f"{key}.torrent")
-                    if file_name not in os.listdir(self.conf['torrent_dir']):
+                    if file_name not in os.listdir(Server.conf['torrent_dir']):
                         print("dl ", key)
                         torrent = requests.request("GET", feed[key])
-                        open(os.path.join(self.conf['torrent_dir'], file_name), "wb").write(
+                        open(os.path.join(Server.conf['torrent_dir'], file_name), "wb").write(
                             torrent.content)
                         time.sleep(1)  # avoid ban ip
 
@@ -1223,10 +1231,8 @@ class web_API(Server):
 
         @self.app.route('/torrent/upload', methods=['POST'])
         def upload_torrent():
-            self.app.config['UPLOAD_FOLDER'] = self.conf["torrent_dir"]
+            self.app.config['UPLOAD_FOLDER'] = Server.conf["torrent_dir"]
             return upload_file(self.app)
-
-
 
         @self.app.route('/alive')
         def alive():
@@ -1334,24 +1340,6 @@ class web_API(Server):
 
             return "Téléchargement réussi"
 
-        def upload_large_file(file, upload_folder):
-            chunk_size = 8192  # Chunk size for streaming, adjust as needed
-            if file:
-
-                filename = secure_filename(file.filename)
-                filepath = os.path.join(upload_folder, filename)
-
-                with open(filepath, 'wb') as f:
-                    while True:
-                        chunk = file.stream.read(chunk_size)
-                        if not chunk:
-                            break
-                        f.write(chunk)
-
-                return 'File uploaded successfully'
-
-            return 'No file uploaded'
-
         def upload_file(app: Flask):
             file = request.files['file']
             if file:
@@ -1361,7 +1349,6 @@ class web_API(Server):
             return 'No file uploaded'
 
     def run(self):
-
         self.app.run()
 
     def update_cpu_temp(self):
@@ -1387,7 +1374,6 @@ class deploy_serv():
 
     def start(self):
         try:
-
             api = threading.Thread(target=self.web_api.run)
             api.start()
 
@@ -1400,7 +1386,14 @@ class deploy_serv():
                 self.web_api.update_cpu_temp()
                 time.sleep(30)
         except KeyboardInterrupt:
-            print("Shutting Down")
+
+            print("wait before closing saving data")
+            print("saving tmdb_title ...")
+            self.db.save_tmdb_title()
+            print("saving tmdb_db ...")
+            json.dump(Server.tmdb_db, open(os.path.join(VAR_DIR, TMDB_DB), "w", encoding="utf-8"), indent=5)
+            print("Shutting down")
+            quit()
 
 
 def main():
