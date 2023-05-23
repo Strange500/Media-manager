@@ -41,6 +41,23 @@ RSS_MOVIE = "rss_movie.dat"
 RSS_SHOW = "rss_show.dat"
 QUERY_SHOW = "query_show.dat"
 QUERY_MOVIE = "guery_movie.dat"
+GGD_LIB = os.path.join("lib", "ggd_lib.json")
+
+
+def list_all_files(directory: str) -> list:
+    if not os.path.isdir(directory):
+        return []
+    list_files = []
+    for root, directories, files in os.walk(directory):
+        for file in files:
+            file_path = os.path.join(root, file)
+            list_files.append(file_path)
+    return list_files
+
+
+def is_movie(path_file):
+    file_name = os.path.basename(path_file).lower()
+    return "movie" in file_name
 
 
 def compare_dictionaries(dict1, dict2):
@@ -318,10 +335,10 @@ class Server():
                             quit()
                         config[arg1] = arg2
 
-            if config["GGD_Judas"]:
-                if config["GGD_Judas"] == "FALSE":
-                    config.pop("Judas_dir")
-                elif config["GGD_Judas"] == "TRUE":
+            if config["GGD"]:
+                if config["GGD"] == "FALSE":
+                    config.pop("GGD_dir")
+                elif config["GGD"] == "TRUE":
                     pass
                 else:
                     raise ValueError(
@@ -382,7 +399,7 @@ class Server():
     def check_system_files(self):
         list_file = [ANIME_LIB, QUERY_MOVIE, QUERY_SHOW, MOVIES_LIB, SHOWS_LIB, CONF_FILE, TMDB_TITLE, TMDB_DB,
                      RSS_SHOW, RSS_ANIME,
-                     RSS_MOVIE]
+                     RSS_MOVIE, GGD_LIB]
         for file in list_file:
             path = os.path.join(VAR_DIR, file)
             if os.path.isfile(path) and check_json(path):
@@ -421,10 +438,10 @@ class Show(Server):
                 super().update_tmdb_db(self.title, tmdb.TV(self.search.results[0]["id"]).info())
             except IndexError as e:
                 log(f"Can't determine the show named {title}", error=True)
+                print(f"Can't determine the show named {title}")
         else:
             self.title = title
             if not self.title in Server.tmdb_db:
-                print("here")
                 self.id = self.search.tv(query=title)
                 self.id = self.search.results[0]['id']
                 self.tmdb = tmdb.TV(self.id)
@@ -495,7 +512,8 @@ class Sorter(Server):
         self.is_movie = is_movie
         self.path = file_path
         self.file_name = os.path.basename(self.path)
-        self.clean_file_name = os.path.splitext(self.file_name)[0].replace(".", " ").replace("_", " ")  # get file name with no extension
+        self.clean_file_name = os.path.splitext(self.file_name)[0].replace(".", " ").replace("_",
+                                                                                             " ")  # get file name with no extension
         if not is_movie:
             self.source = self.determine_source()
         self.ext = os.path.splitext(self.file_name)[1]
@@ -1320,7 +1338,7 @@ class web_API(Server):
             else:
                 abort(400)
 
-        @self.app.route('/upload', methods=['POST',"OPTIONS"])
+        @self.app.route('/upload', methods=['POST', "OPTIONS"])
         def upload_file():
             if 'file' not in request.files:
                 return "Aucun fichier n'a été sélectionné", 400
@@ -1366,11 +1384,66 @@ class web_API(Server):
         self.cpu_avg = round(sum(self.cpu_temp_list) / len(self.cpu_temp_list), 2)
 
 
+class Gg_drive():
+
+    def __init__(self):
+        self.d_dirs = Server.conf["GGD_dir"]
+        self.dict_ep = json.load(open(os.path.join(VAR_DIR, GGD_LIB), "r", encoding="utf-8"))
+        self.exclude_dir = ["G:\Drive partagés\Judas - DDL (Full) (provided by BanglaDubZone)\[Judas] DDL exclusives",
+                            "G:\Drive partagés\Judas - DDL (Full) (provided by BanglaDubZone)\[Judas] Bluray releases\My old releases as member of Hakata Ramen group"
+            ,
+                            "G:\Drive partagés\Judas - DDL (Full) (provided by BanglaDubZone)\[Judas] Webrip batches\My old releases as member of Hakata Ramen group"]
+
+    def to_exlude(self, path):
+        for p in self.exclude_dir:
+            if p in path:
+                return True
+        return False
+
+    def get_ep(self):
+        list_files = []
+        if type(self.d_dirs) == str:
+            list_files = list_all_files(self.d_dirs)
+        else:
+            for dir in self.d_dirs:
+                list_files += list_all_files(dir)
+        dictionary_episode = {}
+        for episode_path in list_files:
+            if self.to_exlude(episode_path):
+                pass
+            elif (not self.dict_ep.get(episode_path, False)) and is_video(episode_path):
+                print(episode_path)
+                file_name = os.path.basename(episode_path)
+                movie = is_movie(episode_path)
+                try:
+                    ep_info = Sorter(episode_path, movie)
+                    self.dict_ep[episode_path] = {"renamed": ep_info.__str__(),
+                                                  "language": ep_info.lang,
+                                                  "episode_number": ep_info.ep,
+                                                  "title": ep_info.title,
+                                                  "season_number": ep_info.season,
+                                                  "codec": ep_info.codec,
+                                                  }
+                    json.dump(self.dict_ep, open(os.path.join(VAR_DIR, GGD_LIB), "w", encoding="utf-8"), indent=5)
+                except AttributeError:
+                    print(f"can't determine {file_name}")
+
+        json.dump(dictionary_episode, open(os.path.join(VAR_DIR, GGD_LIB), "w", encoding="utf-8"), indent=5)
+        return dictionary_episode
+
+    def run(self):
+        try:
+            self.get_ep()
+        except KeyboardInterrupt:
+            json.dump(Server.tmdb_db, open(os.path.join(VAR_DIR, TMDB_DB), "w", encoding="utf-8"), indent=5)
+
+
 class deploy_serv():
 
     def __init__(self):
         self.db = DataBase()
         self.web_api = web_API(self.db)
+        self.GGD = Gg_drive()
 
     def start(self):
         try:
@@ -1379,6 +1452,9 @@ class deploy_serv():
 
             db = threading.Thread(target=self.db.serve_forever)
             db.start()
+
+            GGD = threading.Thread(target=self.GGD.run)
+            GGD.start()
 
             while True:
                 if len(self.web_api.cpu_temp_list) > 120:
@@ -1398,6 +1474,7 @@ class deploy_serv():
 
 def main():
     server = deploy_serv()
+    drive = Gg_drive()
 
     server.start()
 
