@@ -14,7 +14,6 @@ import requests
 import tmdbsimple as tmdb
 from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
-from pymediainfo import MediaInfo
 from werkzeug.utils import secure_filename
 
 if platform.system() == "Windows":
@@ -31,7 +30,7 @@ elif platform.system() == "Linux":
     VAR_DIR = "/var/lib/my-server"
 
 CONF_FILE = "server.conf"
-TMDB_TITLE = "tmdb_tile.dat"
+TMDB_TITLE = os.path.join("lib", "tmdb_tile.json")
 ANIME_LIB = os.path.join("lib", "anime.json")
 SHOWS_LIB = os.path.join("lib", "shows.json")
 MOVIES_LIB = os.path.join("lib", "movie.json")
@@ -41,6 +40,23 @@ RSS_MOVIE = "rss_movie.dat"
 RSS_SHOW = "rss_show.dat"
 QUERY_SHOW = "query_show.dat"
 QUERY_MOVIE = "guery_movie.dat"
+GGD_LIB = os.path.join("lib", "ggd_lib.json")
+
+
+def list_all_files(directory: str) -> list:
+    if not os.path.isdir(directory):
+        return []
+    list_files = []
+    for root, directories, files in os.walk(directory):
+        for file in files:
+            file_path = os.path.join(root, file)
+            list_files.append(file_path)
+    return list_files
+
+
+def is_movie(path_file):
+    file_name = os.path.basename(path_file).lower()
+    return "movie" in file_name
 
 
 def compare_dictionaries(dict1, dict2):
@@ -284,6 +300,29 @@ def check_json(path: str) -> bool:
 
 
 class Server():
+    tmdb_title: dict
+    tmdb_db: dict
+    conf: dict
+
+    list_file = [ANIME_LIB, QUERY_MOVIE, QUERY_SHOW, MOVIES_LIB, SHOWS_LIB, CONF_FILE, TMDB_TITLE, TMDB_DB,
+                 RSS_SHOW, RSS_ANIME,
+                 RSS_MOVIE, GGD_LIB]
+    for file in list_file:
+        path = os.path.join(VAR_DIR, file)
+        if os.path.isfile(path) and check_json(path):
+            pass
+        else:
+            if "json" in file:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                json.dump({}, open(path, "w"))
+            else:
+                open(path, "w")
+
+    tmdb_db = json.load(open(os.path.join(VAR_DIR, TMDB_DB), "r", encoding="utf-8"))
+    # tmdb_title = {i.split(" : ")[0]: i.split(" : ")[1].replace("\n", "") for i in
+    #              open(os.path.join(VAR_DIR, TMDB_TITLE), "r", encoding="utf-8")}
+    tmdb_title = json.load(open(os.path.join(VAR_DIR, TMDB_TITLE), "r", encoding="utf-8"))
+
     def load_config(lib: str | None = VAR_DIR) -> dict:
         """list of all elt contained in config:
             shows_dir
@@ -318,10 +357,10 @@ class Server():
                             quit()
                         config[arg1] = arg2
 
-            if config["GGD_Judas"]:
-                if config["GGD_Judas"] == "FALSE":
-                    config.pop("Judas_dir")
-                elif config["GGD_Judas"] == "TRUE":
+            if config["GGD"]:
+                if config["GGD"] == "FALSE":
+                    config.pop("GGD_dir")
+                elif config["GGD"] == "TRUE":
                     pass
                 else:
                     raise ValueError(
@@ -368,9 +407,6 @@ class Server():
             print(e)
             quit()
 
-    tmdb_db = json.load(open(os.path.join(VAR_DIR, TMDB_DB), "r", encoding="utf-8"))
-    tmdb_title = [i.replace("\n", "").split(" : ") for i in
-                  open(os.path.join(VAR_DIR, TMDB_TITLE), "r", encoding="utf-8")]
     conf = load_config()
 
     def __init__(self, enable=True):
@@ -382,7 +418,7 @@ class Server():
     def check_system_files(self):
         list_file = [ANIME_LIB, QUERY_MOVIE, QUERY_SHOW, MOVIES_LIB, SHOWS_LIB, CONF_FILE, TMDB_TITLE, TMDB_DB,
                      RSS_SHOW, RSS_ANIME,
-                     RSS_MOVIE]
+                     RSS_MOVIE, GGD_LIB]
         for file in list_file:
             path = os.path.join(VAR_DIR, file)
             if os.path.isfile(path) and check_json(path):
@@ -408,6 +444,12 @@ class Server():
     def update_tmdb_db(self, title, n_item):
         Server.tmdb_db[title] = n_item
 
+    def add_tmdb_title(dertermined_title: str, tmdb_title):
+        Server.tmdb_title[dertermined_title] = tmdb_title
+
+    def get_tmdb_title(determined_title: str):
+        return Server.tmdb_title.get(determined_title, None)
+
 
 class Show(Server):
 
@@ -419,12 +461,12 @@ class Show(Server):
                 self.search.tv(query=title)
                 self.title = self.search.results[0]["name"]
                 super().update_tmdb_db(self.title, tmdb.TV(self.search.results[0]["id"]).info())
+                Server.add_tmdb_title(title, self.title)
             except IndexError as e:
                 log(f"Can't determine the show named {title}", error=True)
         else:
             self.title = title
             if not self.title in Server.tmdb_db:
-                print("here")
                 self.id = self.search.tv(query=title)
                 self.id = self.search.results[0]['id']
                 self.tmdb = tmdb.TV(self.id)
@@ -494,24 +536,35 @@ class Sorter(Server):
         super().__init__(enable=False)  # Not needed
         self.is_movie = is_movie
         self.path = file_path
+        self.for_test = for_test
         self.file_name = os.path.basename(self.path)
-        self.clean_file_name = os.path.splitext(self.file_name)[0].replace(".", " ").replace("_", " ")  # get file name with no extension
+        self.clean_file_name = os.path.splitext(self.file_name)[0].replace(".", " ").replace("_",
+                                                                                             " ")  # get file name with no extension
         if not is_movie:
             self.source = self.determine_source()
         self.ext = os.path.splitext(self.file_name)[1]
         self.make_clean_file_name()
         if not for_test:
-            self.media_info = MediaInfo.parse(self.path)
             self.spec = self.video_spec()
-            if "format" in self.spec:
-                self.codec = self.spec["format"]
-            else:
+            try:
+                self.codec = self.spec["video"]["codec"]
+            except:
                 self.codec = "Unknown_codec"
             self.lang = self.determine_language()
+            self.list_subs_lang = self.spec["subtitles"]["language"]
+            self.list_audio_lang = self.spec["audio"]["language"]
+            self.resolution = f'{self.spec["video"]["height"]}p'
         if not is_movie:
+
             self.season = self.determine_season()
-            self.title = Show("ok", self.determine_title(), is_valid=False).title
+            self.title = self.determine_title()
+            temp = Server.get_tmdb_title(self.title)
+            if temp != None:
+                self.title = Show("ok", temp, is_valid=True).title
+            else:
+                self.title = Show("ok", self.title, is_valid=False).title
             self.ep = self.determine_ep()
+
         else:
             self.title = self.det_title_movie()
 
@@ -595,7 +648,28 @@ class Sorter(Server):
 
         return "01"
 
-    def determine_language(self) -> str:
+    def determine_language(self):
+        if "vf" in self.file_name.lower() and "vostfr" in self.file_name.lower():
+            return "VF/VOSTFR"
+
+        elif "vf" in self.file_name.lower():
+            return "VF"
+        elif "vostfr" in self.file_name.lower():
+            return "VOSTFR"
+        result = ""
+        if len(self.spec["subtitles"]["language"]) > 1:
+            result = "Multi-Subs"
+            if len(self.spec["audio"]["language"]) > 1:
+                result += " Multi-Audios"
+                return result
+            return result
+        else:
+            if "fre" in self.spec["subtitles"]["language"] and "jpn" in self.spec["audio"]["language"]:
+                return "VOSTFR"
+            else:
+                return "Unknown"
+
+    def determine_language_old(self) -> str:
         if "vf" in self.file_name.lower() and "vostfr" in self.file_name.lower():
             return "VF/VOSTFR"
 
@@ -618,63 +692,52 @@ class Sorter(Server):
 
             return "UKNOWNLANG"
 
-    def tracks(self):
-        media_info = self.media_info
-        tracks_list_subs = []
-        tracks_list_audio = []
-        for track in media_info.tracks:
-            if track.track_type == "Audio":
+    def video_spec(self) -> dict[str, dict[str, list[str]] | dict[str, list[str]] | dict[str, int]]:
+
+        track_info = {'audio': {"codec": [],
+                                "language": []},
+                      'subtitles': {"codec": [],
+                                    "language": []
+                                    },
+                      'video': {"codec": None,
+                                "height": None, }}
+        # Run the ffprobe command and capture the output
+        cmd = ["ffprobe", "-v", "quiet", "-print_format", "json", "-show_format", "-show_streams", self.path]
+        result = subprocess.check_output(cmd, universal_newlines=True, errors="ignore")
+
+        # Parse the JSON output to extract the subtitle languages
+        data = json.loads(result)
+        for streams in data["streams"]:
+            type = streams["codec_type"].lower()
+            if type == "video":
                 try:
-                    tracks_list_audio.append(track.to_data()["language"])
+                    track_info["video"]["height"] = streams["height"]
                 except KeyError:
-                    tracks_list_audio.append("ja")
-
-            elif track.track_type == "Text":
-
+                    pass
                 try:
-                    tracks_list_subs.append(track.to_data()["language"])
+                    track_info["video"]["codec"] = streams["codec_name"].upper()
                 except KeyError:
-                    try:
-                        tracks_list_subs = tracks_list_subs + track.to_data()["other_language"]
-                    except KeyError:
-                        try:
-                            if "FR" in track.to_data()["title"] or "fr" in track.to_data()["title"] or "Fr" in \
-                                    track.to_data()["title"] or "francais" in track.to_data()["title"] or "français" in \
-                                    track.to_data()["title"] or "Français" in track.to_data()["title"] or "french" in \
-                                    track.to_data()["title"] or "French" in track.to_data()["title"]:
-                                tracks_list_subs.append("fr")
-                        except:
-                            pass
-
-            elif track.track_type == "Menu":
-
+                    pass
+            elif type == "audio":
                 try:
-                    tracks_list_subs.append(track.to_data()["language"])
+                    track_info["audio"]["codec"].append(streams["codec_name"].upper())
+                except KeyError:
+                    pass
+                try:
+                    track_info["audio"]["language"].append(streams["tags"]["language"].lower())
+                except KeyError:
+                    pass
+            elif type == "subtitle":
+                try:
+                    track_info["subtitles"]["codec"].append(streams["codec_name"].upper())
+                except KeyError:
+                    pass
+                try:
+                    track_info["subtitles"]["language"].append(streams["tags"]["language"].lower())
                 except KeyError:
                     pass
 
-        return {"subs": tracks_list_subs, "audio": tracks_list_audio}
-
-    def determine_resolution(self):
-        if "1080" in self.file_name:
-            return "1080"
-        elif "720" in self.file_name:
-            return "720"
-        elif "480" in self.file_name:
-            return "480"
-        else:
-            try:
-                return self.spec["height"]
-            except KeyError:
-                return "no resolution"
-
-    def video_spec(self) -> dict:
-        """Retourne un dictionnaire contenant toute les information lier à une piste vidéo"""
-        media_info = self.media_info
-        for track in media_info.tracks:
-            if track.track_type == "Video":
-                return track.to_data()
-        return {}
+        return track_info
 
     def determine_ep(self) -> str:
         """return the ep of a video file from it's title"""
@@ -732,11 +795,17 @@ class Sorter(Server):
 
     def __str__(self):
         if self.is_movie:
+            if self.for_test:
+                return forbiden_car(
+                    f"{self.title} -Strange {self.ext}")
             return forbiden_car(
-                f"{self.title} - [{self.lang} {self.determine_resolution()} {self.codec}] -Strange {self.ext}")
+                f"{self.title} - [{self.lang} {self.resolution} {self.codec}] -Strange {self.ext}")
         else:
+            if self.for_test:
+                return forbiden_car(
+                    f"{self.title} - S{self.season}E{self.ep} -{self.source} {self.ext}")
             return forbiden_car(
-                f"{self.title} - S{self.season}E{self.ep} - [{self.lang} {self.determine_resolution()} {self.codec}] -{self.source} {self.ext}")
+                f"{self.title} - S{self.season}E{self.ep} - [{self.lang} {self.resolution} {self.codec}] -{self.source} {self.ext}")
 
 
 class Movie(Server):
@@ -749,6 +818,7 @@ class Movie(Server):
                 self.search.movie(query=title)
                 self.title = self.search.results[0]["name"]
                 super().update_tmdb_db(self.title, tmdb.Movies(self.search.results[0]["id"]).info())
+                Server.add_tmdb_title(title, self.title)
             except IndexError:
                 log(f"Can't determine the movie named {title}", error=True)
         else:
@@ -903,15 +973,16 @@ class DataBase(Server):
         return (dic, r, dirs, lib)
 
     def find_tmdb_title(self, title: str, anime=False, shows=False, movie=False):
-        for couple in Server.tmdb_title:
-            if couple[0] == title:
-                return couple[1].strip()
+        tmdb_title = Server.get_tmdb_title(title)
+        if tmdb_title != None:
+            return tmdb_title
         if anime or shows:
             self.search.tv(query=title)
         else:
             self.search.movie(query=title)
         try:
             super().update_tmdb_db(self.search.results[0]["name"], self.search.results[0])
+            Server.add_tmdb_title(title, self.search.results[0]["name"])
             return self.search.results[0]["name"]
         except IndexError as e:
             log(f"No title found for {title}", warning=True)
@@ -1045,23 +1116,26 @@ class DataBase(Server):
                         pass
                     except PermissionError:
                         pass
+                    except subprocess.CalledProcessError:
+                        pass
+
                 elif os.path.isdir(path):
                     extract_files(path, self.to_sort_anime)
-        elif type(dir) == list:
-            for dirs in dir:
-                for file in os.listdir(dirs):
-                    path = os.path.join(dirs, file)
-                    if os.path.isfile(path) and is_video(path):
-                        try:
-                            s = Sorter(path, movie)
-                            self.add_file(s, anime, shows, movie)
-                        except RuntimeError:
-                            pass
-                        except PermissionError:
-                            pass
-                    elif os.path.isdir(path):
-                        extract_files(path, self.to_sort_anime)
-                        self.sort(anime, shows, movie)
+                elif type(dir) == list:
+                    for dirs in dir:
+                        for file in os.listdir(dirs):
+                            path = os.path.join(dirs, file)
+                            if os.path.isfile(path) and is_video(path):
+                                try:
+                                    s = Sorter(path, movie)
+                                    self.add_file(s, anime, shows, movie)
+                                except RuntimeError:
+                                    pass
+                                except PermissionError:
+                                    pass
+                            elif os.path.isdir(path):
+                                extract_files(path, self.to_sort_anime)
+                                self.sort(anime, shows, movie)
 
     def serve_forever(self):
         try:
@@ -1101,11 +1175,7 @@ class DataBase(Server):
         return False
 
     def save_tmdb_title(self):
-        with open(os.path.join(VAR_DIR, TMDB_TITLE), "w", encoding="utf-8") as f:
-            for i in range(len(Server.tmdb_title)):
-                Server.tmdb_title[i] = " : ".join(Server.tmdb_title[i])
-            text = "\n".join(Server.tmdb_title)
-            f.write(text)
+        json.dump(Server.tmdb_title, open(os.path.join(VAR_DIR, TMDB_TITLE), "w", encoding="utf-8"), indent=5)
 
 
 class Feed(DataBase):
@@ -1320,7 +1390,7 @@ class web_API(Server):
             else:
                 abort(400)
 
-        @self.app.route('/upload', methods=['POST',"OPTIONS"])
+        @self.app.route('/upload', methods=['POST', "OPTIONS"])
         def upload_file():
             if 'file' not in request.files:
                 return "Aucun fichier n'a été sélectionné", 400
@@ -1366,11 +1436,83 @@ class web_API(Server):
         self.cpu_avg = round(sum(self.cpu_temp_list) / len(self.cpu_temp_list), 2)
 
 
+class Gg_drive():
+
+    def __init__(self):
+        self.d_dirs = Server.conf["GGD_dir"]
+        self.dict_ep = json.load(open(os.path.join(VAR_DIR, GGD_LIB), "r", encoding="utf-8"))
+        self.exclude_dir = ["G:\Drive partagés\Judas - DDL (Full) (provided by BanglaDubZone)\[Judas] DDL exclusives",
+                            "G:\Drive partagés\Judas - DDL (Full) (provided by BanglaDubZone)\[Judas] Bluray releases\My old releases as member of Hakata Ramen group"
+            ,
+                            "G:\Drive partagés\Judas - DDL (Full) (provided by BanglaDubZone)\[Judas] Webrip batches\My old releases as member of Hakata Ramen group"]
+
+    def to_exlude(self, path):
+        for p in self.exclude_dir:
+            if p in path:
+                return True
+        return False
+
+    def update_dict_ep(self, fast=False):
+        list_files = []
+        if type(self.d_dirs) == str:
+            list_files = list_all_files(self.d_dirs)
+        else:
+            for dir in self.d_dirs:
+                list_files += list_all_files(dir)
+        dictionary_episode = {}
+        for episode_path in list_files:
+            if self.to_exlude(episode_path):
+                pass
+            elif (not self.dict_ep.get(episode_path, False)) and is_video(episode_path):
+                print(episode_path)
+                movie = is_movie(episode_path)
+                try:
+                    try:
+                        ep_info = Sorter(episode_path, movie, for_test=fast)
+                    except subprocess.CalledProcessError as e:
+                        try:
+                            ep_info = Sorter(episode_path, movie, for_test=fast)
+                        except subprocess.CalledProcessError:
+                            continue
+                        except UnicodeError:
+                            continue
+                    if not fast:
+                        self.dict_ep[episode_path] = {"renamed": ep_info.__str__(),
+                                                      "language": ep_info.lang,
+                                                      "list_subs_language": ep_info.list_subs_lang,
+                                                      "list_audio_language": ep_info.list_audio_lang,
+                                                      "episode_number": ep_info.ep,
+                                                      "title": ep_info.title,
+                                                      "height": ep_info.resolution,
+                                                      "season_number": ep_info.season,
+                                                      "codec": ep_info.codec,
+                                                      }
+                        json.dump(self.dict_ep, open(os.path.join(VAR_DIR, GGD_LIB), "w", encoding="utf-8"),
+                                  indent=5)
+                    else:
+                        self.dict_ep[episode_path] = {"renamed": ep_info.__str__(),
+                                                      "title": ep_info.title,
+                                                      "season_number": ep_info.season,
+                                                      }
+                except AttributeError as e:
+                    pass
+
+        json.dump(self.dict_ep, open(os.path.join(VAR_DIR, GGD_LIB), "w", encoding="utf-8"), indent=5)
+        return dictionary_episode
+
+    def run(self):
+        try:
+            self.update_dict_ep()
+        except KeyboardInterrupt:
+            json.dump(Server.tmdb_db, open(os.path.join(VAR_DIR, TMDB_DB), "w", encoding="utf-8"), indent=5)
+
+
 class deploy_serv():
 
     def __init__(self):
         self.db = DataBase()
         self.web_api = web_API(self.db)
+        self.GGD = Gg_drive()
 
     def start(self):
         try:
@@ -1379,6 +1521,9 @@ class deploy_serv():
 
             db = threading.Thread(target=self.db.serve_forever)
             db.start()
+
+            GGD = threading.Thread(target=self.GGD.run)
+            GGD.start()
 
             while True:
                 if len(self.web_api.cpu_temp_list) > 120:
@@ -1398,6 +1543,7 @@ class deploy_serv():
 
 def main():
     server = deploy_serv()
+    drive = Gg_drive()
 
     server.start()
 
