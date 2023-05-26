@@ -462,6 +462,8 @@ class Show(Server):
                 self.title = self.search.results[0]["name"]
                 super().update_tmdb_db(self.title, tmdb.TV(self.search.results[0]["id"]).info())
                 Server.add_tmdb_title(title, self.title)
+                self.info = Server.tmdb_db[title]
+                self.id = self.info['id']
             except IndexError as e:
                 log(f"Can't determine the show named {title}", error=True)
         else:
@@ -560,9 +562,12 @@ class Sorter(Server):
             self.title = self.determine_title()
             temp = Server.get_tmdb_title(self.title)
             if temp != None:
-                self.title = Show("ok", temp, is_valid=True).title
+                self.show = Show("ok", temp, is_valid=True)
             else:
-                self.title = Show("ok", self.title, is_valid=False).title
+                self.show = Show("ok", self.title, is_valid=False)
+            self.tmdb_info = self.show.info
+            self.id = self.show.id
+            self.title = self.show.title
             self.ep = self.determine_ep()
 
         else:
@@ -1437,10 +1442,14 @@ class web_API(Server):
 
 
 class Gg_drive():
+    dict_ep = json.load(open(os.path.join(VAR_DIR, GGD_LIB), "r", encoding="utf-8"))
+    from pprint import pprint
+    pprint(dict_ep)
+    input()
 
     def __init__(self):
         self.d_dirs = Server.conf["GGD_dir"]
-        self.dict_ep = json.load(open(os.path.join(VAR_DIR, GGD_LIB), "r", encoding="utf-8"))
+
         self.exclude_dir = ["G:\Drive partagés\Judas - DDL (Full) (provided by BanglaDubZone)\[Judas] DDL exclusives",
                             "G:\Drive partagés\Judas - DDL (Full) (provided by BanglaDubZone)\[Judas] Bluray releases\My old releases as member of Hakata Ramen group"
             ,
@@ -1463,7 +1472,7 @@ class Gg_drive():
         for episode_path in list_files:
             if self.to_exlude(episode_path):
                 pass
-            elif (not self.dict_ep.get(episode_path, False)) and is_video(episode_path):
+            elif (not Gg_drive.dict_ep.get(episode_path, False)) and is_video(episode_path):
                 print(episode_path)
                 movie = is_movie(episode_path)
                 try:
@@ -1476,28 +1485,34 @@ class Gg_drive():
                             continue
                         except UnicodeError:
                             continue
+                    if Gg_drive.dict_ep.get(ep_info.id, None) == None:
+                        Gg_drive.dict_ep[ep_info.id] = {}
+                    if Gg_drive.dict_ep[ep_info.id].get(ep_info.season, None) == None:
+                        Gg_drive.dict_ep[ep_info.id][ep_info.season] = {}
+                    if Gg_drive.dict_ep[ep_info.id][ep_info.season].get(ep_info.ep, None) == None:
+                        Gg_drive.dict_ep[ep_info.id][ep_info.season][ep_info.ep] = {}
                     if not fast:
-                        self.dict_ep[episode_path] = {"renamed": ep_info.__str__(),
-                                                      "language": ep_info.lang,
-                                                      "list_subs_language": ep_info.list_subs_lang,
-                                                      "list_audio_language": ep_info.list_audio_lang,
-                                                      "episode_number": ep_info.ep,
-                                                      "title": ep_info.title,
-                                                      "height": ep_info.resolution,
-                                                      "season_number": ep_info.season,
-                                                      "codec": ep_info.codec,
-                                                      }
-                        json.dump(self.dict_ep, open(os.path.join(VAR_DIR, GGD_LIB), "w", encoding="utf-8"),
-                                  indent=5)
+
+                        Gg_drive.dict_ep[ep_info.id][ep_info.season][ep_info.ep][ep_info.path] = {
+                            "renamed": ep_info.__str__(),
+                            "language": ep_info.lang,
+                            "list_subs_language": ep_info.list_subs_lang,
+                            "list_audio_language": ep_info.list_audio_lang,
+                            "title": ep_info.title,
+                            "height": ep_info.resolution,
+                            "codec": ep_info.codec,
+                        }
+
                     else:
-                        self.dict_ep[episode_path] = {"renamed": ep_info.__str__(),
-                                                      "title": ep_info.title,
-                                                      "season_number": ep_info.season,
-                                                      }
+                        Gg_drive.dict_ep[ep_info.id][ep_info.season][ep_info.ep][ep_info.path] = {
+                            "renamed": ep_info.__str__(),
+                            "title": ep_info.title,
+                            "season_number": ep_info.season,
+                        }
                 except AttributeError as e:
                     pass
 
-        json.dump(self.dict_ep, open(os.path.join(VAR_DIR, GGD_LIB), "w", encoding="utf-8"), indent=5)
+        json.dump(Gg_drive.dict_ep, open(os.path.join(VAR_DIR, GGD_LIB), "w", encoding="utf-8"), indent=5)
         return dictionary_episode
 
     def run(self):
@@ -1533,6 +1548,8 @@ class deploy_serv():
         except KeyboardInterrupt:
 
             print("wait before closing saving data")
+            print("saving GGD_lib")
+            json.dump(Gg_drive.dict_ep, open(os.path.join(VAR_DIR, GGD_LIB), "w", encoding="utf-8"), indent=5)
             print("saving tmdb_title ...")
             self.db.save_tmdb_title()
             print("saving tmdb_db ...")
