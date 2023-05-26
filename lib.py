@@ -462,13 +462,13 @@ class Show(Server):
                 self.title = self.search.results[0]["name"]
                 super().update_tmdb_db(self.title, tmdb.TV(self.search.results[0]["id"]).info())
                 Server.add_tmdb_title(title, self.title)
-                self.info = Server.tmdb_db[title]
+                self.info = Server.tmdb_db[self.title]
                 self.id = self.info['id']
             except IndexError as e:
                 log(f"Can't determine the show named {title}", error=True)
         else:
             self.title = title
-            if not self.title in Server.tmdb_db:
+            if Server.tmdb_db.get(self.title, None) is None:
                 self.id = self.search.tv(query=title)
                 self.id = self.search.results[0]['id']
                 self.tmdb = tmdb.TV(self.id)
@@ -1123,6 +1123,8 @@ class DataBase(Server):
                         pass
                     except subprocess.CalledProcessError:
                         pass
+                    except IndexError:
+                        pass
 
                 elif os.path.isdir(path):
                     extract_files(path, self.to_sort_anime)
@@ -1448,8 +1450,7 @@ class Gg_drive():
         self.d_dirs = Server.conf["GGD_dir"]
 
         self.exclude_dir = ["G:\Drive partagés\Judas - DDL (Full) (provided by BanglaDubZone)\[Judas] DDL exclusives",
-                            "G:\Drive partagés\Judas - DDL (Full) (provided by BanglaDubZone)\[Judas] Bluray releases\My old releases as member of Hakata Ramen group"
-            ,
+                            "G:\Drive partagés\Judas - DDL (Full) (provided by BanglaDubZone)\[Judas] Bluray releases\My old releases as member of Hakata Ramen group",
                             "G:\Drive partagés\Judas - DDL (Full) (provided by BanglaDubZone)\[Judas] Webrip batches\My old releases as member of Hakata Ramen group"]
 
     def to_exlude(self, path):
@@ -1485,11 +1486,11 @@ class Gg_drive():
                     id = str(ep_info.id)
                     season = str(ep_info.season)
                     ep = str(ep_info.ep)
-                    if Gg_drive.dict_ep.get(id, None) == None:
+                    if Gg_drive.dict_ep.get(id, None) is None:
                         Gg_drive.dict_ep[id] = {}
-                    if Gg_drive.dict_ep[id].get(season, None) == None:
+                    if Gg_drive.dict_ep[id].get(season, None) is None:
                         Gg_drive.dict_ep[id][season] = {}
-                    if Gg_drive.dict_ep[id][season].get(ep, None) == None:
+                    if Gg_drive.dict_ep[id][season].get(ep, None) is None:
                         Gg_drive.dict_ep[id][season][ep] = {}
                     if not fast:
 
