@@ -1443,9 +1443,6 @@ class web_API(Server):
 
 class Gg_drive():
     dict_ep = json.load(open(os.path.join(VAR_DIR, GGD_LIB), "r", encoding="utf-8"))
-    from pprint import pprint
-    pprint(dict_ep)
-    input()
 
     def __init__(self):
         self.d_dirs = Server.conf["GGD_dir"]
@@ -1472,7 +1469,7 @@ class Gg_drive():
         for episode_path in list_files:
             if self.to_exlude(episode_path):
                 pass
-            elif (not Gg_drive.dict_ep.get(episode_path, False)) and is_video(episode_path):
+            elif is_video(episode_path):
                 print(episode_path)
                 movie = is_movie(episode_path)
                 try:
@@ -1485,15 +1482,18 @@ class Gg_drive():
                             continue
                         except UnicodeError:
                             continue
-                    if Gg_drive.dict_ep.get(ep_info.id, None) == None:
-                        Gg_drive.dict_ep[ep_info.id] = {}
-                    if Gg_drive.dict_ep[ep_info.id].get(ep_info.season, None) == None:
-                        Gg_drive.dict_ep[ep_info.id][ep_info.season] = {}
-                    if Gg_drive.dict_ep[ep_info.id][ep_info.season].get(ep_info.ep, None) == None:
-                        Gg_drive.dict_ep[ep_info.id][ep_info.season][ep_info.ep] = {}
+                    id = str(ep_info.id)
+                    season = str(ep_info.season)
+                    ep = str(ep_info.ep)
+                    if Gg_drive.dict_ep.get(id, None) == None:
+                        Gg_drive.dict_ep[id] = {}
+                    if Gg_drive.dict_ep[id].get(season, None) == None:
+                        Gg_drive.dict_ep[id][season] = {}
+                    if Gg_drive.dict_ep[id][season].get(ep, None) == None:
+                        Gg_drive.dict_ep[id][season][ep] = {}
                     if not fast:
 
-                        Gg_drive.dict_ep[ep_info.id][ep_info.season][ep_info.ep][ep_info.path] = {
+                        Gg_drive.dict_ep[id][season][ep][ep_info.path] = {
                             "renamed": ep_info.__str__(),
                             "language": ep_info.lang,
                             "list_subs_language": ep_info.list_subs_lang,
