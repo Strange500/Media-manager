@@ -609,7 +609,6 @@ class Sorter(Server):
             self.id = self.movie.id
             self.title = self.movie.title
 
-
     def make_clean_file_name(self):
         for banned_car in [("[", "]"), ("{", "}"), ("(", ")")]:
             car1, car2 = banned_car
@@ -883,18 +882,19 @@ class Movie(Server):
             path = os.path.join(self.path, file.__str__())
             shutil.move(file.path, path)
             DataBase.movies[str(self.id)]["file_info"] = {
-                    "renamed": file.__str__(),
-                    "path": path,
-                    "language": file.lang,
-                    "list_subs_language": file.list_subs_lang,
-                    "list_audio_language": file.list_audio_lang,
-                    "height": file.resolution,
-                    "codec": file.codec,
-                }
+                "renamed": file.__str__(),
+                "path": path,
+                "language": file.lang,
+                "list_subs_language": file.list_subs_lang,
+                "list_audio_language": file.list_audio_lang,
+                "height": file.resolution,
+                "codec": file.codec,
+            }
             json.dump(DataBase.movies, open(os.path.join(VAR_DIR, MOVIES_LIB), "w", encoding="utf-8"), indent=5)
 
     def delete(self):
         shutil.rmtree(self.path)
+        DataBase.movies.pop(str(self.id))
 
 
 class Season(Server):
@@ -909,12 +909,12 @@ class Season(Server):
     def list_episode(self) -> list:
         if type(self.anime) == Anime:
             return \
-            DataBase.animes[str(self.anime.id)]['seasons'][str(self.info["season_info"]["season_number"]).zfill(2)][
-                "current_episode"]
+                DataBase.animes[str(self.anime.id)]['seasons'][str(self.info["season_info"]["season_number"]).zfill(2)][
+                    "current_episode"]
         if type(self.anime) == Show:
             return \
-            DataBase.shows[str(self.anime.id)]['seasons'][str(self.info["season_info"]["season_number"]).zfill(2)][
-                "current_episode"]
+                DataBase.shows[str(self.anime.id)]['seasons'][str(self.info["season_info"]["season_number"]).zfill(2)][
+                    "current_episode"]
 
     def add_ep(self, file: Sorter):
         if os.path.isfile(file.path):
@@ -1148,7 +1148,7 @@ class DataBase(Server):
             if not delete:
                 if DataBase.movies.get(id, None) is None:
                     DataBase.movies[id] = {"title": info["title"],
-                                          "path": value,
+                                           "path": value,
                                            "file_info": {}}
             else:
                 DataBase.shows.pop(id)
