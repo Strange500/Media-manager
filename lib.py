@@ -41,6 +41,7 @@ RSS_SHOW = "rss_show.dat"
 QUERY_SHOW = "query_show.dat"
 QUERY_MOVIE = "guery_movie.dat"
 GGD_LIB = os.path.join("lib", "ggd_lib.json")
+list_language = ["french"]
 
 
 def list_all_files(directory: str) -> list:
@@ -453,9 +454,10 @@ class Server():
 
 class Show(Server):
 
-    def __init__(self, path: str, title: str, is_valid=False):
+    def __init__(self, path: str, title: str, is_valid=False, is_show=True):
         super().__init__()
         self.path = path
+        self.is_show = is_show
         if not is_valid:
             try:
                 self.search.tv(query=title)
@@ -470,6 +472,7 @@ class Show(Server):
             self.title = title
             if Server.tmdb_db.get(self.title, None) is None:
                 self.id = self.search.tv(query=title)
+                print(title)
                 self.id = self.search.results[0]['id']
                 self.tmdb = tmdb.TV(self.id)
                 self.info = self.tmdb.info()
@@ -479,38 +482,64 @@ class Show(Server):
                 self.id = self.info['id']
             self.seasons = self.list_season()
 
+    def list_season(self):
+        if self.is_show:
+            result = DataBase.shows.get(str(self.id), None)
+            if result is None:
+                return None
+            return DataBase.shows[str(self.id)]["seasons"]
+        else:
+            result = DataBase.animes.get(str(self.id), None)
+            if result is None:
+                return None
+            return DataBase.animes[str(self.id)]["seasons"]
+
     def update_data(self):
         super().update_tmdb_db(self.title, tmdb.TV(self.id).info())
-
-    def list_season(self) -> list:
-        ls = []
-        for sea in self.info["seasons"]:
-            path_dir = os.path.join(self.path, f"Season {str(sea['season_number']).zfill(2)}")
-            os.makedirs(path_dir, exist_ok=True)
-            ls.append(Season(self, path_dir, sea))
-        return ls
 
     def delete(self):
         shutil.rmtree(self.path)
 
     def delete_ep(self, season_number: int, ep_number: int) -> bool:
-        for elt in self.seasons:
-            if elt.info['season_number'] == season_number:
-                for ep in elt.list_ep:
-                    if ep.ep == ep_number:
-                        ep.delete()
-                        elt.list_ep.remove(ep)
-                        elt.is_completed = elt.info["episode_count"] == len(elt.list_ep)
-                        return True
+        elt = self.seasons.get(str(season_number).zfill(2), None)
+        if elt is not None:
+            nb = str(ep_number).zfill(2)
+            ep = elt["current_episode"].get(nb, None)
+            if ep is None:
+                nb = str(ep_number).zfill(3)
+                ep = elt["current_episode"].get(nb, None)
+                if ep is None:
+                    nb = str(ep_number).zfill(4)
+                    ep = elt["current_episode"].get(nb, None)
+                    if ep is None:
+                        return
+
+            e = Episode(Season(self, elt['path'], elt), ep["path"])
+            e.delete()
+            if self.is_show:
+                DataBase.shows[str(self.id)]["seasons"][str(season_number).zfill(2)]["current_episode"].pop(nb)
+                json.dump(DataBase.shows, open(os.path.join(VAR_DIR, SHOWS_LIB), "w", encoding="utf-8"), indent=5)
+            else:
+                DataBase.animes[str(self.id)]["seasons"][str(season_number).zfill(2)]["current_episode"].pop(nb)
+                json.dump(DataBase.animes, open(os.path.join(VAR_DIR, ANIME_LIB), "w", encoding="utf-8"), indent=5)
+            return True
         return False
 
     def delete_season(self, season_number: int) -> bool:
-        for elt in self.seasons:
-            if elt.info['season_number'] == season_number:
-                for ep in elt.list_ep:
-                    ep.delete()
-                self.seasons.remove(elt)
-                return True
+        season = self.seasons.get(str(season_number).zfill(2), None)
+        if season is not None:
+            for file in os.listdir(season["path"]):
+                if os.path.isfile(os.path.join(season["path"], file)):
+                    os.remove(os.path.join(season["path"], file))
+                elif os.path.isdir(os.path.join(season["path"], file)):
+                    shutil.rmtree(os.path.join(season["path"], file))
+            if self.is_show:
+                DataBase.shows[str(self.id)]["seasons"][str(season_number).zfill(2)]["current_episode"] = {}
+                json.dump(DataBase.shows, open(os.path.join(VAR_DIR, SHOWS_LIB), "w", encoding="utf-8"), indent=5)
+            else:
+                DataBase.animes[str(self.id)]["seasons"][str(season_number).zfill(2)]["current_episode"] = {}
+                json.dump(DataBase.animes, open(os.path.join(VAR_DIR, ANIME_LIB), "w", encoding="utf-8"), indent=5)
+            return True
         return False
 
     def add_season(self, nb: int):
@@ -530,7 +559,7 @@ class Show(Server):
 
 class Anime(Show):
     def __init__(self, path: str, title: str, is_valid=False):
-        super().__init__(path, title, is_valid)
+        super().__init__(path, title, is_valid, is_show=False)
 
 
 class Sorter(Server):
@@ -561,7 +590,7 @@ class Sorter(Server):
             self.season = self.determine_season()
             self.title = self.determine_title()
             temp = Server.get_tmdb_title(self.title)
-            if temp != None:
+            if temp is not None:
                 self.show = Show("ok", temp, is_valid=True)
             else:
                 self.show = Show("ok", self.title, is_valid=False)
@@ -572,6 +601,15 @@ class Sorter(Server):
 
         else:
             self.title = self.det_title_movie()
+            print(self.title)
+            temp = Server.get_tmdb_title(self.title)
+            if temp is not None:
+                self.movie = Movie(self.path, temp, is_valid=True)
+            else:
+                self.movie = Movie(self.path, self.title, is_valid=False)
+            self.tmdb_info = self.movie.info
+            self.id = self.movie.id
+            self.title = self.movie.title
 
     def make_clean_file_name(self):
         for banned_car in [("[", "]"), ("{", "}"), ("(", ")")]:
@@ -580,13 +618,51 @@ class Sorter(Server):
                 self.clean_file_name = delete_from_to(self.clean_file_name, car1, car2)
 
     def det_title_movie(self):
-        file = self.clean_file_name
-        if "(" in self.file_name:
-            return self.file_name[:self.file_name.index("(")].strip()
-        else:
-            for car in file:
-                if car.isnumeric():
-                    return file.split(car)[0].strip()
+        file = os.path.splitext(self.file_name)[0].replace(".", " ").replace("_", " ")
+        if file[0] == "[" and "]" in file:
+            file = delete_from_to(file, "[", "]").strip()
+            print(file)
+        if 'movie' in file.lower():
+            if "movie" in file:
+                file = file.split("movie")[0]
+            elif "MOVIE" in file:
+                file = file.split("MOVIE")[0]
+            elif "Movie" in file:
+                file = file.split("Movie")[0]
+        if 'film' in file.lower():
+            if "film" in file:
+                file = file.split("film")[0]
+            elif "FILM" in file:
+                file = file.split("FILM")[0]
+            elif "Film" in file:
+                file = file.split("Film")[0]
+        if "-" in file[-3:]:
+            file = "-".join(file.split("-")[:-1])
+
+        new = file[0]
+        file = file[1:]
+        for language in list_language:
+            if language in file:
+                file = file.split(language)[0]
+            elif language in file.lower():
+                file = file.split(f"{language[0].upper()}{language[1:]}")[0]
+        if "(" in file:
+            file = file.split("(")[0]
+        file += "/"
+        while file[0] != "/":
+            if len(file) >= 4:
+                test = file[0:4]
+                if test.isnumeric() and (1900 < int(test) <= datetime.datetime.now().year or int(test) in [1080, 720,
+                                                                                                           480, 2160]):
+                    break
+                else:
+                    new += file[0]
+                    file = file[1:]
+            else:
+                new += file[0]
+                file = file[1:]
+
+        return new
 
     def determine_title(self) -> str:
         """return the title of a video"""
@@ -821,9 +897,12 @@ class Movie(Server):
         if not is_valid:
             try:
                 self.search.movie(query=title)
-                self.title = self.search.results[0]["name"]
+                from pprint import pprint
+                self.title = self.search.results[0]["title"]
                 super().update_tmdb_db(self.title, tmdb.Movies(self.search.results[0]["id"]).info())
                 Server.add_tmdb_title(title, self.title)
+                self.info = Server.tmdb_db[self.title]
+                self.id = self.info['id']
             except IndexError:
                 log(f"Can't determine the movie named {title}", error=True)
         else:
@@ -842,9 +921,20 @@ class Movie(Server):
         if os.path.isfile(file.path):
             path = os.path.join(self.path, file.__str__())
             shutil.move(file.path, path)
+            DataBase.movies[str(self.id)]["file_info"] = {
+                "renamed": file.__str__(),
+                "path": path,
+                "language": file.lang,
+                "list_subs_language": file.list_subs_lang,
+                "list_audio_language": file.list_audio_lang,
+                "height": file.resolution,
+                "codec": file.codec,
+            }
+            json.dump(DataBase.movies, open(os.path.join(VAR_DIR, MOVIES_LIB), "w", encoding="utf-8"), indent=5)
 
     def delete(self):
         shutil.rmtree(self.path)
+        DataBase.movies.pop(str(self.id))
 
 
 class Season(Server):
@@ -854,21 +944,44 @@ class Season(Server):
         self.path = path
         self.info = info
         self.list_ep = self.list_episode()
-        self.is_completed = self.info["episode_count"] == len(self.list_ep)
+        self.is_completed = self.info["season_info"]["episode_count"] == len(self.list_ep)
 
     def list_episode(self) -> list:
-        ls = []
-        for file in os.listdir(self.path):
-            p = os.path.join(self.path, file)
-            if os.path.isfile(p) and is_video(p):
-                ls.append(Episode(self, p))
-        return ls
+        if type(self.anime) == Anime:
+            return \
+                DataBase.animes[str(self.anime.id)]['seasons'][str(self.info["season_info"]["season_number"]).zfill(2)][
+                    "current_episode"]
+        if type(self.anime) == Show:
+            return \
+                DataBase.shows[str(self.anime.id)]['seasons'][str(self.info["season_info"]["season_number"]).zfill(2)][
+                    "current_episode"]
 
     def add_ep(self, file: Sorter):
         if os.path.isfile(file.path):
             path = os.path.join(self.path, file.__str__())
             shutil.move(file.path, path)
-            self.list_ep.append(Episode(self, path))
+            if self.anime.is_show:
+                DataBase.shows[str(self.anime.id)]["seasons"][file.season]['current_episode'][file.ep] = {
+                    "renamed": file.__str__(),
+                    "path": path,
+                    "language": file.lang,
+                    "list_subs_language": file.list_subs_lang,
+                    "list_audio_language": file.list_audio_lang,
+                    "height": file.resolution,
+                    "codec": file.codec,
+                }
+                json.dump(DataBase.shows, open(os.path.join(VAR_DIR, SHOWS_LIB), "w", encoding="utf-8"), indent=5)
+            else:
+                DataBase.animes[str(self.anime.id)]["seasons"][file.season]['current_episode'][file.ep] = {
+                    "renamed": file.__str__(),
+                    "path": path,
+                    "language": file.lang,
+                    "list_subs_language": file.list_subs_lang,
+                    "list_audio_language": file.list_audio_lang,
+                    "height": file.resolution,
+                    "codec": file.codec,
+                }
+                json.dump(DataBase.animes, open(os.path.join(VAR_DIR, ANIME_LIB), "w", encoding="utf-8"), indent=5)
 
     def __str__(self):
         dic = {}
@@ -882,7 +995,8 @@ class Episode(Server):
         self.path = path
         self.s = season
         self.file_name = os.path.splitext(os.path.basename(path))[0]
-        self.season = str(season.info['season_number']).zfill(2)
+        print(season.info)
+        self.season = str(season.info['season_info']['season_number']).zfill(2)
         self.ep = int(self.file_name.split(" - ")[1].split("E")[-1])
         self.codec = self.file_name.split(" - ")[2].split(" ")[-1].split("]")[0]
         try:
@@ -906,6 +1020,22 @@ def choose_best_version(v_cur: Episode, v_new: Sorter) -> Sorter | Episode:
 
 
 class DataBase(Server):
+    try:
+        animes = json.load(open(os.path.join(VAR_DIR, ANIME_LIB), "r", encoding="utf-8"))
+    except IOError as e:
+        log(f"can't acces to {ANIME_LIB}", error=True)
+        quit()
+    try:
+        shows = json.load(open(os.path.join(VAR_DIR, SHOWS_LIB), "r", encoding="utf-8"))
+    except IOError as e:
+        log(f"can't acces to {SHOWS_LIB}", error=True)
+        quit()
+    try:
+        movies = json.load(open(os.path.join(VAR_DIR, MOVIES_LIB), "r", encoding="utf-8"))
+    except IOError as e:
+        log(f"can't acces to {MOVIES_LIB}", error=True)
+        quit()
+
     def __init__(self):
         super().__init__(enable=True)
         super().check_system_files()
@@ -915,63 +1045,48 @@ class DataBase(Server):
         self.to_sort_anime = Server.conf["sorter_anime_dir"]
         self.to_sort_show = Server.conf["sorter_show_dir"]
         self.to_sort_movie = Server.conf["sorter_movie_dir"]
-        try:
-            self.animes = json.load(open(os.path.join(VAR_DIR, ANIME_LIB), "r", encoding="utf-8"))
-        except IOError as e:
-            log(f"can't acces to {ANIME_LIB}", error=True)
-            quit()
-        try:
-            self.shows = json.load(open(os.path.join(VAR_DIR, SHOWS_LIB), "r", encoding="utf-8"))
-        except IOError as e:
-            log(f"can't acces to {SHOWS_LIB}", error=True)
-            quit()
-        try:
-            self.movies = json.load(open(os.path.join(VAR_DIR, MOVIES_LIB), "r", encoding="utf-8"))
-        except IOError as e:
-            log(f"can't acces to {MOVIES_LIB}", error=True)
-            quit()
         self.check_database()
 
     def check_database(self):
-        """check if all information from self.shows/anime/movies are correct (dir exist)"""
-        ls = self.animes.copy()
-        for media in self.animes:
-            if not os.path.isdir(self.animes[media]):
+        """check if all information from Database.shows/anime/movies are correct (dir exist)"""
+        ls = DataBase.animes.copy()
+        for media in DataBase.animes:
+            if not os.path.isdir(DataBase.animes[media]["path"]):
                 ls.pop(media)
-        if not compare_dictionaries(self.animes, ls):
-            self.animes = ls.copy()
-            json.dump(self.animes, open(os.path.join(VAR_DIR, ANIME_LIB), "w", encoding="utf-8"), indent=5)
+        if not compare_dictionaries(DataBase.animes, ls):
+            DataBase.animes = ls.copy()
+            json.dump(DataBase.animes, open(os.path.join(VAR_DIR, ANIME_LIB), "w", encoding="utf-8"), indent=5)
         ls.clear()
-        ls = self.shows.copy()
-        for media in self.shows:
-            if not os.path.isdir(self.shows[media]):
+        ls = DataBase.shows.copy()
+        for media in DataBase.shows:
+            if not os.path.isdir(DataBase.shows[media]['path']):
                 ls.pop(media)
-        if not compare_dictionaries(self.shows, ls):
-            self.shows = ls.copy()
-            json.dump(self.shows, open(os.path.join(VAR_DIR, SHOWS_LIB), "w", encoding="utf-8"), indent=5)
+        if not compare_dictionaries(DataBase.shows, ls):
+            DataBase.shows = ls.copy()
+            json.dump(DataBase.shows, open(os.path.join(VAR_DIR, SHOWS_LIB), "w", encoding="utf-8"), indent=5)
         ls.clear()
-        ls = self.movies.copy()
-        for media in self.movies:
-            if not os.path.isdir(self.movies[media]):
+        ls = DataBase.movies.copy()
+        for media in DataBase.movies:
+            if not os.path.isdir(DataBase.movies[media]['path']):
                 ls.pop(media)
-        if not compare_dictionaries(self.movies, ls):
-            self.movies = ls.copy()
-            json.dump(self.movies, open(os.path.join(VAR_DIR, MOVIES_LIB), "w", encoding="utf-8"), indent=5)
+        if not compare_dictionaries(DataBase.movies, ls):
+            DataBase.movies = ls.copy()
+            json.dump(DataBase.movies, open(os.path.join(VAR_DIR, MOVIES_LIB), "w", encoding="utf-8"), indent=5)
 
     def var(self, anime=False, shows=False, movie=False) -> tuple[dict, Anime | Show | Movie, list, str]:
         self.check_database()
         if anime:
-            dic = self.animes
+            dic = DataBase.animes
             r = Anime
             dirs = Server.conf["anime_dir"]
             lib = ANIME_LIB
         elif shows:
-            dic = self.shows
+            dic = DataBase.shows
             r = Show
             dirs = Server.conf["shows_dir"]
             lib = SHOWS_LIB
         elif movie:
-            dic = self.movies
+            dic = DataBase.movies
             r = Movie
             dirs = Server.conf["movie_dir"]
             lib = MOVIES_LIB
@@ -993,42 +1108,91 @@ class DataBase(Server):
             log(f"No title found for {title}", warning=True)
             return False
 
-    def find(self, title, anime=False, shows=False, movie=False, is_valid=False) -> Anime | Show | Movie | bool:
+    def find(self, title, anime=False, shows=False, movie=False, is_valid=False,
+             id=None) -> Anime | Show | Movie | bool:
         dic, r, dirs, lib = self.var(anime, shows, movie)
-        if not is_valid:
-            title = self.find_tmdb_title(title, anime, shows, movie)
-            if title == False:
-                return False
-            return self.find(title, anime, shows, movie, is_valid=True)
-        elif dic != {}:
-            try:
-                path = dic[title]
-                return r(path, title, is_valid)
-            except KeyError:
-                return False
-        else:
+        self.search.tv(query=title)
+        try:
+            if movie:
+                self.search.movie(query=title)
+                text = "title"
+            else:
+                self.search.tv(query=title)
+                text = "name"
+            info = self.search.results[0]
+            super().update_tmdb_db(info[text], info)
+            id = str(info["id"])
+            path = dic.get(id, None)["path"]
+            return r(path, info[text], is_valid=True)
+        except KeyError:
+            return False
+        except IndexError:
             return False
 
     def update_lib(self, n_item, value, anime=False, shows=False, movie=False, delete=False):
         dic, r, dirs, lib = self.var(anime, shows, movie)
         if anime:
+            info = self.tmdb_db.get(n_item, False)
+            if info == False:
+                info = Anime(value, n_item, is_valid=True)
+                super().update_tmdb_db(info.title, tmdb.TV(info.search.results[0]["id"]).info())
+                info = self.tmdb_db[info.title]
+            id = str(info['id'])
+
             if not delete:
-                self.animes[n_item] = value
+                if DataBase.animes.get(id, None) is None:
+                    DataBase.animes[id] = {"title": info["name"],
+                                           "path": value,
+                                           "seasons": {}}
+                for season in info["seasons"]:
+                    path = os.path.join(DataBase.animes[id]['path'], f"Season {str(season['season_number']).zfill(2)}")
+                    os.makedirs(path, exist_ok=True)
+                    if DataBase.animes[id]["seasons"].get(str(season["season_number"]).zfill(2), None) is None:
+                        DataBase.animes[id]["seasons"][str(season["season_number"]).zfill(2)] = {"season_info": season,
+                                                                                                 'path': path,
+                                                                                                 'current_episode': {}}
             else:
-                self.animes.pop(n_item)
-            json.dump(self.animes, open(os.path.join(VAR_DIR, lib), "w", encoding="utf-8"), indent=5)
+                DataBase.animes.pop(id)
+            json.dump(DataBase.animes, open(os.path.join(VAR_DIR, lib), "w", encoding="utf-8"), indent=5)
         elif shows:
+            info = self.tmdb_db.get(n_item, False)
+            if info == False:
+                info = Show(value, n_item, is_valid=True)
+                super().update_tmdb_db(info.title, tmdb.TV(info.search.results[0]["id"]).info())
+                info = self.tmdb_db[info.title]
+            id = str(info['id'])
+
             if not delete:
-                self.shows[n_item] = value
+                if DataBase.shows.get(id, None) is None:
+                    DataBase.shows[id] = {"title": info["name"],
+                                          "path": value,
+                                          "seasons": {}}
+                for season in info["seasons"]:
+                    path = os.path.join(DataBase.shows[id]['path'], f"Season {str(season['season_number']).zfill(2)}")
+                    os.makedirs(path, exist_ok=True)
+                    if DataBase.shows[id]["seasons"].get(str(season["season_number"]).zfill(2), None) is None:
+                        DataBase.shows[id]["seasons"][str(season["season_number"]).zfill(2)] = {"season_info": season,
+                                                                                                'path': path,
+                                                                                                'current_episode': {}}
             else:
-                self.shows.pop(n_item)
-            json.dump(self.shows, open(os.path.join(VAR_DIR, lib), "w", encoding="utf-8"), indent=5)
+                DataBase.shows.pop(id)
+            json.dump(DataBase.shows, open(os.path.join(VAR_DIR, lib), "w", encoding="utf-8"), indent=5)
         elif movie:
+            info = self.tmdb_db.get(n_item, False)
+            if info == False:
+                info = Movie(value, n_item, is_valid=True)
+                super().update_tmdb_db(info.title, tmdb.TV(info.search.results[0]["id"]).info())
+                info = self.tmdb_db[info.title]
+            id = str(info['id'])
+
             if not delete:
-                self.movies[n_item] = value
+                if DataBase.movies.get(id, None) is None:
+                    DataBase.movies[id] = {"title": info["title"],
+                                           "path": value,
+                                           "file_info": {}}
             else:
-                self.movies.pop(n_item)
-            json.dump(self.movies, open(os.path.join(VAR_DIR, lib), "w", encoding="utf-8"), indent=5)
+                DataBase.shows.pop(id)
+            json.dump(DataBase.movies, open(os.path.join(VAR_DIR, lib), "w", encoding="utf-8"), indent=5)
 
     def get_dir_freer(self, anime=False, shows=False, movie=False) -> str:
         """return the direcotires with the more free space
@@ -1037,7 +1201,7 @@ class DataBase(Server):
         max, max_dir = 0, ""
         return get_path_with_most_free_space(dirs)
 
-    def add(self, title, anime=False, shows=False, movie=False, is_valid=False) -> bool:
+    def add(self, title, anime=False, shows=False, movie=False, is_valid=False) -> bool | Anime | Show | Movie:
         dict, r, dirs, lib = self.var(anime, shows, movie)
         if not is_valid:
             title = r("path", title, is_valid).title
@@ -1046,7 +1210,8 @@ class DataBase(Server):
                 return self.add(title, anime=anime, shows=shows, movie=movie, is_valid=True)
             else:
                 return self.add(title, anime=anime, shows=shows, movie=movie, is_valid=True)
-        elif title not in dict:
+        id = str(self.tmdb_db[title]['id'])
+        if id not in dict:
             dir = self.get_dir_freer(anime, shows, movie)
             try:
                 path = os.path.join(dir, forbiden_car(title))
@@ -1058,31 +1223,29 @@ class DataBase(Server):
                 log(e, error=True)
             return r(path, title, is_valid=True)
         else:
-            return r(dict[title], title, is_valid=True)
+            return r(dict[id], title, is_valid=True)
 
     def add_file(self, file: Sorter, anime=False, shows=False, movie=False) -> bool:
         elt = self.add(file.title, anime, shows, movie, is_valid=True)
         if elt != False and not movie:
-            for season in elt.seasons:
-                if str(season.info['season_number']).zfill(2) == file.season:
-                    for ep in season.list_ep:
-                        if f"{int(ep.ep):02}" == file.ep:
-                            if choose_best_version(ep, file) == file:
-                                self.replace(ep, file, anime, shows, movie)
-                                return True
-                            else:
-                                os.remove(file.path)
-                                return True
-                            return True
-                    season.add_ep(file)
-                    return
-            log(f"Episode is unknown for the databse : {file}", error=True)
+            season = elt.seasons[file.season]
+            ep = season.get(file.ep, None)
+            if ep is None:
+                s = Season(elt, season['path'], season)
+                s.add_ep(file)
+                return
+            elif choose_best_version(ep, file) == file:
+                self.replace(ep, file, anime, shows, movie)
+                return True
+            else:
+                os.remove(file.path)
+                return True
+
+            log(f"Episode is unknown for the database : {file}", error=True)
             if anime:
                 st = "anime"
             elif shows:
                 st = "show"
-            elif movie:
-                st = movie
             os.makedirs(os.path.join(Server.conf["errors_dir"], st), exist_ok=True)
             safe_move(file.path, os.path.join(Server.conf["errors_dir"], st))  # add to error directory for manual sort
         elif movie:
@@ -1111,38 +1274,24 @@ class DataBase(Server):
         elif movie:
             dir = self.to_sort_movie
         if type(dir) == str:
-            for file in os.listdir(dir):
-                path = os.path.join(dir, file)
-                if os.path.isfile(path) and is_video(path):
-                    try:
-                        s = Sorter(path, movie)
-                        self.add_file(s, anime, shows, movie)
-                    except RuntimeError as e:
-                        pass
-                    except PermissionError:
-                        pass
-                    except subprocess.CalledProcessError:
-                        pass
-                    except IndexError:
-                        pass
-
-                elif os.path.isdir(path):
-                    extract_files(path, self.to_sort_anime)
-                elif type(dir) == list:
-                    for dirs in dir:
-                        for file in os.listdir(dirs):
-                            path = os.path.join(dirs, file)
-                            if os.path.isfile(path) and is_video(path):
-                                try:
-                                    s = Sorter(path, movie)
-                                    self.add_file(s, anime, shows, movie)
-                                except RuntimeError:
-                                    pass
-                                except PermissionError:
-                                    pass
-                            elif os.path.isdir(path):
-                                extract_files(path, self.to_sort_anime)
-                                self.sort(anime, shows, movie)
+            list_file = list_all_files(dir)
+        elif type(dir) == list:
+            list_file = []
+            for directory in dir:
+                list_file += list_all_files(directory)
+        for file in list_file:
+            if os.path.isfile(file) and is_video(file):
+                try:
+                    s = Sorter(file, movie)
+                    self.add_file(s, anime, shows, movie)
+                except RuntimeError as e:
+                    pass
+                except PermissionError:
+                    pass
+                except subprocess.CalledProcessError:
+                    pass
+                except IndexError:
+                    pass
 
     def serve_forever(self):
         try:
@@ -1174,11 +1323,11 @@ class DataBase(Server):
         if elt == False:
             return False
         elif not movie:
-            for season in elt.seasons:
-                for ep in season.list_ep:
-                    if f"{int(ep.ep):02}" == file.ep:
-                        return True
-            return False
+            ep = elt.seasons[file.season]["current_episode"].get(file.ep, None)
+            if ep is None:
+                return False
+            else:
+                return True
         return False
 
     def save_tmdb_title(self):
@@ -1259,7 +1408,6 @@ class Feed(DataBase):
                 for key in feed:
                     file_name = forbiden_car(f"{key}.torrent")
                     if file_name not in os.listdir(Server.conf['torrent_dir']):
-                        print("dl ", key)
                         torrent = requests.request("GET", feed[key])
                         open(os.path.join(Server.conf['torrent_dir'], file_name), "wb").write(
                             torrent.content)
@@ -1372,7 +1520,6 @@ class web_API(Server):
             if request.method == 'POST':
                 if request.form.get("choice") in ["anime", "show"]:
                     self.search.tv(query=request.form.get("search"))
-                    print(self.search.results)
                     return jsonify({"results": self.search.results})
                 elif request.form.get("choice") == "movie":
                     self.search.movie(query=request.form.get("search"))
@@ -1406,7 +1553,6 @@ class web_API(Server):
             if file.filename == '':
                 return "Le nom de fichier est vide", 400
             ch = request.form.get("up_choice")
-            print(ch)
             if ch == "anime":
                 dir_save = self.db.to_sort_anime
             elif ch == "show":
@@ -1471,7 +1617,6 @@ class Gg_drive():
             if self.to_exlude(episode_path):
                 pass
             elif is_video(episode_path):
-                print(episode_path)
                 movie = is_movie(episode_path)
                 try:
                     try:
@@ -1561,10 +1706,11 @@ class deploy_serv():
 
 def main():
     server = deploy_serv()
-    drive = Gg_drive()
 
-    server.start()
+    for test in os.listdir(os.path.join(VAR_DIR, "test")):
+        print(Sorter(os.path.join(VAR_DIR, "test", test), is_movie=True))
 
+    # server.start()
     # db.serve_forever()
 
 
