@@ -41,6 +41,7 @@ RSS_SHOW = "rss_show.dat"
 QUERY_SHOW = "query_show.dat"
 QUERY_MOVIE = "guery_movie.dat"
 GGD_LIB = os.path.join("lib", "ggd_lib.json")
+list_language = ["french"]
 
 
 def list_all_files(directory: str) -> list:
@@ -600,6 +601,7 @@ class Sorter(Server):
 
         else:
             self.title = self.det_title_movie()
+            print(self.title)
             temp = Server.get_tmdb_title(self.title)
             if temp is not None:
                 self.movie = Movie(self.path, temp, is_valid=True)
@@ -616,13 +618,51 @@ class Sorter(Server):
                 self.clean_file_name = delete_from_to(self.clean_file_name, car1, car2)
 
     def det_title_movie(self):
-        file = self.clean_file_name
-        if "(" in self.file_name:
-            return self.file_name[:self.file_name.index("(")].strip()
-        else:
-            for car in file:
-                if car.isnumeric():
-                    return file.split(car)[0].strip()
+        file = os.path.splitext(self.file_name)[0].replace(".", " ").replace("_", " ")
+        if file[0] == "[" and "]" in file:
+            file = delete_from_to(file, "[", "]").strip()
+            print(file)
+        if 'movie' in file.lower():
+            if "movie" in file:
+                file = file.split("movie")[0]
+            elif "MOVIE" in file:
+                file = file.split("MOVIE")[0]
+            elif "Movie" in file:
+                file = file.split("Movie")[0]
+        if 'film' in file.lower():
+            if "film" in file:
+                file = file.split("film")[0]
+            elif "FILM" in file:
+                file = file.split("FILM")[0]
+            elif "Film" in file:
+                file = file.split("Film")[0]
+        if "-" in file[-3:]:
+            file = "-".join(file.split("-")[:-1])
+
+        new = file[0]
+        file = file[1:]
+        for language in list_language:
+            if language in file:
+                file = file.split(language)[0]
+            elif language in file.lower():
+                file = file.split(f"{language[0].upper()}{language[1:]}")[0]
+        if "(" in file:
+            file = file.split("(")[0]
+        file += "/"
+        while file[0] != "/":
+            if len(file) >= 4:
+                test = file[0:4]
+                if test.isnumeric() and (1900 < int(test) <= datetime.datetime.now().year or int(test) in [1080, 720,
+                                                                                                           480, 2160]):
+                    break
+                else:
+                    new += file[0]
+                    file = file[1:]
+            else:
+                new += file[0]
+                file = file[1:]
+
+        return new
 
     def determine_title(self) -> str:
         """return the title of a video"""
@@ -1667,7 +1707,10 @@ class deploy_serv():
 def main():
     server = deploy_serv()
 
-    server.start()
+    for test in os.listdir(os.path.join(VAR_DIR, "test")):
+        print(Sorter(os.path.join(VAR_DIR, "test", test), is_movie=True))
+
+    # server.start()
     # db.serve_forever()
 
 
