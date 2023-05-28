@@ -1234,38 +1234,24 @@ class DataBase(Server):
         elif movie:
             dir = self.to_sort_movie
         if type(dir) == str:
-            for file in os.listdir(dir):
-                path = os.path.join(dir, file)
-                if os.path.isfile(path) and is_video(path):
-                    try:
-                        s = Sorter(path, movie)
-                        self.add_file(s, anime, shows, movie)
-                    except RuntimeError as e:
-                        pass
-                    except PermissionError:
-                        pass
-                    except subprocess.CalledProcessError:
-                        pass
-                    except IndexError:
-                        pass
-
-                elif os.path.isdir(path):
-                    extract_files(path, self.to_sort_anime)
-                elif type(dir) == list:
-                    for dirs in dir:
-                        for file in os.listdir(dirs):
-                            path = os.path.join(dirs, file)
-                            if os.path.isfile(path) and is_video(path):
-                                try:
-                                    s = Sorter(path, movie)
-                                    self.add_file(s, anime, shows, movie)
-                                except RuntimeError:
-                                    pass
-                                except PermissionError:
-                                    pass
-                            elif os.path.isdir(path):
-                                extract_files(path, self.to_sort_anime)
-                                self.sort(anime, shows, movie)
+            list_file = list_all_files(dir)
+        elif type(dir) == list:
+            list_file = []
+            for directory in dir:
+                list_file += list_all_files(directory)
+        for file in list_file:
+            if os.path.isfile(file) and is_video(file):
+                try:
+                    s = Sorter(file, movie)
+                    self.add_file(s, anime, shows, movie)
+                except RuntimeError as e:
+                    pass
+                except PermissionError:
+                    pass
+                except subprocess.CalledProcessError:
+                    pass
+                except IndexError:
+                    pass
 
     def serve_forever(self):
         try:
