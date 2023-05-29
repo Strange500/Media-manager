@@ -1128,6 +1128,8 @@ class DataBase(Server):
             return False
         except IndexError:
             return False
+        except TypeError:
+            return False
 
     def update_lib(self, n_item, value, anime=False, shows=False, movie=False, delete=False):
         dic, r, dirs, lib = self.var(anime, shows, movie)
@@ -1339,7 +1341,6 @@ class Feed(DataBase):
     def __init__(self):
         super().__init__()
         self.feed_dict = self.get_feed()
-        self.sort_feed()
 
     def get_feed(self) -> dict:
         rss_feeds = {"anime_feeds": [], "movie_feeds": [], "show_feeds": []}
@@ -1412,6 +1413,15 @@ class Feed(DataBase):
                         open(os.path.join(Server.conf['torrent_dir'], file_name), "wb").write(
                             torrent.content)
                         time.sleep(1)  # avoid ban ip
+
+    def run(self):
+        while True:
+            try:
+                self.sort_feed()
+            except AttributeError as e:
+                print(e)
+            self.dl_torrent()
+            time.sleep(300)
 
 
 ##########################################
@@ -1572,7 +1582,7 @@ class web_API(Server):
             return 'No file uploaded'
 
     def run(self):
-        self.app.run()
+        self.app.run(host='0.0.0.0')
 
     def update_cpu_temp(self):
         if platform.system() == "Linux":
@@ -1674,6 +1684,7 @@ class deploy_serv():
         self.db = DataBase()
         self.web_api = web_API(self.db)
         self.GGD = Gg_drive()
+        self.dl = Feed()
 
     def start(self):
         try:
@@ -1682,9 +1693,12 @@ class deploy_serv():
 
             db = threading.Thread(target=self.db.serve_forever)
             db.start()
-
-            GGD = threading.Thread(target=self.GGD.run)
-            GGD.start()
+            if Server.conf["GGD"]:
+                GGD = threading.Thread(target=self.GGD.run)
+                GGD.start()
+            if Server.conf["Downloader"]:
+                dl = threading.Thread(target=self.dl.run)
+                dl.start()
 
             while True:
                 if len(self.web_api.cpu_temp_list) > 120:
@@ -1707,10 +1721,7 @@ class deploy_serv():
 def main():
     server = deploy_serv()
 
-    for test in os.listdir(os.path.join(VAR_DIR, "test")):
-        print(Sorter(os.path.join(VAR_DIR, "test", test), is_movie=True))
-
-    # server.start()
+    server.start()
     # db.serve_forever()
 
 
