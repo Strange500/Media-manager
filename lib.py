@@ -35,6 +35,7 @@ ANIME_LIB = os.path.join("lib", "anime.json")
 SHOWS_LIB = os.path.join("lib", "shows.json")
 MOVIES_LIB = os.path.join("lib", "movie.json")
 TMDB_DB = os.path.join("lib", "tmdb_db.json")
+FEED_STORAGE = os.path.join("lib", "feed_storage.json")
 RSS_ANIME = "rss_anime.dat"
 RSS_MOVIE = "rss_movie.dat"
 RSS_SHOW = "rss_show.dat"
@@ -42,6 +43,7 @@ QUERY_SHOW = "query_show.dat"
 QUERY_MOVIE = "guery_movie.dat"
 GGD_LIB = os.path.join("lib", "ggd_lib.json")
 list_language = ["french"]
+SUB_LIST = {"VOSTFR": "fre", "OmdU": "ger"}
 
 
 def list_all_files(directory: str) -> list:
@@ -307,7 +309,7 @@ class Server():
 
     list_file = [ANIME_LIB, QUERY_MOVIE, QUERY_SHOW, MOVIES_LIB, SHOWS_LIB, CONF_FILE, TMDB_TITLE, TMDB_DB,
                  RSS_SHOW, RSS_ANIME,
-                 RSS_MOVIE, GGD_LIB]
+                 RSS_MOVIE, GGD_LIB, FEED_STORAGE]
     for file in list_file:
         path = os.path.join(VAR_DIR, file)
         if os.path.isfile(path) and check_json(path):
@@ -472,7 +474,6 @@ class Show(Server):
             self.title = title
             if Server.tmdb_db.get(self.title, None) is None:
                 self.id = self.search.tv(query=title)
-                print(title)
                 self.id = self.search.results[0]['id']
                 self.tmdb = tmdb.TV(self.id)
                 self.info = self.tmdb.info()
@@ -601,7 +602,6 @@ class Sorter(Server):
 
         else:
             self.title = self.det_title_movie()
-            print(self.title)
             temp = Server.get_tmdb_title(self.title)
             if temp is not None:
                 self.movie = Movie(self.path, temp, is_valid=True)
@@ -618,24 +618,22 @@ class Sorter(Server):
                 self.clean_file_name = delete_from_to(self.clean_file_name, car1, car2)
 
     def det_title_movie(self):
-        file = os.path.splitext(self.file_name)[0].replace(".", " ").replace("_", " ")
+        if self.file_name[-1] == ')':
+            file = delete_from_to(self.path[::-1], ")", "(")[::-1]
+            file = os.path.basename(file)
+        else:
+            file = self.file_name
+        file = os.path.splitext(file)[0].replace(".", " ").replace("_", " ")
         if file[0] == "[" and "]" in file:
             file = delete_from_to(file, "[", "]").strip()
-            print(file)
-        if 'movie' in file.lower():
-            if "movie" in file:
-                file = file.split("movie")[0]
-            elif "MOVIE" in file:
-                file = file.split("MOVIE")[0]
-            elif "Movie" in file:
-                file = file.split("Movie")[0]
-        if 'film' in file.lower():
-            if "film" in file:
-                file = file.split("film")[0]
-            elif "FILM" in file:
-                file = file.split("FILM")[0]
-            elif "Film" in file:
-                file = file.split("Film")[0]
+        for words in ["movie", "film", "vostfr"]:
+            if words in file.lower():
+                if words in file:
+                    file = file.split(words)[0]
+                elif words.upper() in file:
+                    file = file.split(words.upper())[0]
+                elif f"{words[0].upper()}{words[1:]}" in file:
+                    file = file.split(f"{words[0].upper()}{words[1:]}")[0]
         if "-" in file[-3:]:
             file = "-".join(file.split("-")[:-1])
 
@@ -897,7 +895,6 @@ class Movie(Server):
         if not is_valid:
             try:
                 self.search.movie(query=title)
-                from pprint import pprint
                 self.title = self.search.results[0]["title"]
                 super().update_tmdb_db(self.title, tmdb.Movies(self.search.results[0]["id"]).info())
                 Server.add_tmdb_title(title, self.title)
@@ -995,7 +992,6 @@ class Episode(Server):
         self.path = path
         self.s = season
         self.file_name = os.path.splitext(os.path.basename(path))[0]
-        print(season.info)
         self.season = str(season.info['season_info']['season_number']).zfill(2)
         self.ep = int(self.file_name.split(" - ")[1].split("E")[-1])
         self.codec = self.file_name.split(" - ")[2].split(" ")[-1].split("]")[0]
@@ -1337,6 +1333,8 @@ class DataBase(Server):
 
 
 class Feed(DataBase):
+    feed_storage: dict
+    feed_storage = json.load(open(os.path.join(VAR_DIR, FEED_STORAGE), "r", encoding="utf-8"))
 
     def __init__(self):
         super().__init__()
@@ -1351,39 +1349,67 @@ class Feed(DataBase):
         with open(os.path.join(VAR_DIR, RSS_MOVIE), "r", encoding="utf-8") as f:
             for lines in f:
                 if not lines[0] in ["#", '', "\n"]:
-                    rss_feeds["movie_feeds_feeds"].append(lines.replace("\n", "").strip())
+                    rss_feeds["movie_feeds"].append(lines.replace("\n", "").strip())
         with open(os.path.join(VAR_DIR, RSS_SHOW), "r", encoding="utf-8") as f:
             for lines in f:
                 if not lines[0] in ["#", '', "\n"]:
                     rss_feeds["show_feeds"].append(lines.replace("\n", "").strip())
         return rss_feeds
 
-    def get_ep_with_link(self, feed: feedparser.FeedParserDict) -> dict:
+    def get_ep_with_link(self, feed: feedparser.FeedParserDict, feed_title: str) -> dict:
         dicto = {}
         for entry in feed.entries:
+            is_selected = False
             for words in Server.conf["select_words_rss"]:
                 if words in entry.title:
-                    dicto[entry.title] = entry.link
+                    is_selected = True
+                    if "yggtorrent" in feed_title:
+                        dicto[entry.title] = entry.enclosures[0].get("url")
+                    else:
+                        dicto[entry.title] = entry.link
+                    break
+            is_ban = False
             for words in Server.conf["banned_words_rss"]:
-                if words not in entry.title:
+                if is_selected:
+                    break
+                if words in entry.title:
+                    is_ban = True
+                    break
+            if not is_ban:
+                if "yggtorrent" in feed_title:
+                    dicto[entry.title] = entry.enclosures[0].get("url")
+                else:
                     dicto[entry.title] = entry.link
+
         return dicto
 
     def sort_feed(self) -> dict:
 
         for feed_list in self.feed_dict:
-            ls = []
+
             for feed in self.feed_dict[feed_list]:
+                ls = []
+                feed_link = feed
                 time.sleep(2)  # avoid ban IP
                 r = {}
                 r.clear()
                 feed = feedparser.parse(feed)
-                dic = self.get_ep_with_link(feed)
+                dic = self.get_ep_with_link(feed, feed_link)
                 for ep in dic:
+                    title = ep
                     link = dic[ep]
                     if not "movie" in feed_list:
                         try:
                             ep = Sorter(ep, for_test=True)
+                            if Feed.feed_storage.get(str(ep.id), None) is None:
+                                Feed.feed_storage[str(ep.id)] = {}
+                            if Feed.feed_storage[str(ep.id)].get(ep.season, None) is None:
+                                Feed.feed_storage[str(ep.id)][ep.season] = {}
+                            Feed.feed_storage[str(ep.id)][ep.season][ep.ep] = {
+                                "torrent_title": title,
+                                "link": link,
+                                "origin_feed": feed_link
+                            }
                         except AttributeError as e:
                             log(f"can't determine the show {ep}", error=True)
                             pass
@@ -1398,9 +1424,15 @@ class Feed(DataBase):
                                 r[f"{ep.title} - S{ep.season}E{ep.ep} {ep.ext}"] = link
                     else:
                         mv = Sorter(ep, is_movie=True, for_test=True)
+                        Feed.feed_storage[str(mv.id)] = {
+                            "torrent_title": title,
+                            "link": link,
+                            "origin_feed": feed_link
+                        }
                         if not self.have_ep(ep, movie=True):
-                            r[f"{mv.title} - {ep.ext}"] = link
+                            r[f"{mv.title} - {mv.ext}"] = link
                 ls.append(r)
+            dic.clear()
             self.feed_dict[feed_list] = ls
 
     def dl_torrent(self):
@@ -1416,10 +1448,7 @@ class Feed(DataBase):
 
     def run(self):
         while True:
-            try:
-                self.sort_feed()
-            except AttributeError as e:
-                print(e)
+            self.sort_feed()
             self.dl_torrent()
             time.sleep(300)
 
@@ -1714,13 +1743,14 @@ class deploy_serv():
             self.db.save_tmdb_title()
             print("saving tmdb_db ...")
             json.dump(Server.tmdb_db, open(os.path.join(VAR_DIR, TMDB_DB), "w", encoding="utf-8"), indent=5)
+            print("Saving feed storage ...")
+            json.dump(Feed.feed_storage, open(os.path.join(VAR_DIR, FEED_STORAGE), "w", encoding="utf-8"), indent=5)
             print("Shutting down")
             quit()
 
 
 def main():
     server = deploy_serv()
-
     server.start()
     # db.serve_forever()
 
