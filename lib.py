@@ -1229,7 +1229,7 @@ class SorterShows(SorterCommon):
         try:
             while file[0].isnumeric():
                 file = file[1:]
-        except:
+        except IndexError:
             pass
 
         ls = isolate_numbers(file)
@@ -1334,7 +1334,7 @@ class SorterShows(SorterCommon):
         try:
             r = title.split(" -")[-1].strip()
             return r
-        except:
+        except IndexError:
             return "NoSource"
 
     def __str__(self):
