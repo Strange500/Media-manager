@@ -127,7 +127,7 @@ def safe_move(src, dst, max_retries=2, retry_delay=1):
     if not os.path.isfile(src):
         raise FileNotFoundError(f"{src} is not a file")
 
-    if not is_video(src):  # Assuming there's a separate function called 'is_video' to check if it's a video file
+    if is_video(src):  # Assuming there's a separate function called 'is_video' to check if it's a video file
         retries = 0
         while retries < max_retries:
             try:
@@ -503,6 +503,8 @@ class Server():
 
     tmdb_db = json.load(open(os.path.join(VAR_DIR, TMDB_DB), "r", encoding="utf-8"))
     tmdb_title = json.load(open(os.path.join(VAR_DIR, TMDB_TITLE), "r", encoding="utf-8"))
+
+    TASK_GGD_SCAN = 100
 
     def load_config(lib: str | None = VAR_DIR) -> dict:
         """
@@ -1138,14 +1140,17 @@ class SorterCommon(Server):
 
 
 class SorterShows(SorterCommon):
-    def __init__(self, file_path: str, file_reachable=True):
+    def __init__(self, file_path: str, file_reachable=True, is_anime=False):
         super().__init__(file_path, file_reachable)
         self.season = self.determine_season()
         self.title = self.determine_title()
         temp = super().find_tmdb_title(self.title, shows=True)
         if temp == False:
             raise ValueError(f"{file_path}, cannot determine the show")
-        self.show = Show("ok", temp)
+        if is_anime:
+            self.show = Anime("ok", temp)
+        else:
+            self.show = Show("ok", temp)
         self.tmdb_info = self.show.info
         self.id = self.show.id
         self.title = self.show.title
@@ -1513,6 +1518,16 @@ class Season(Server):
                 "current_episode"]
 
     def add_ep(self, file: SorterShows) -> bool:
+        """
+        Ajoute un épisode à la saison en cours de la série.
+
+        Args:
+            file (SorterShows): L'objet représentant le fichier de l'épisode à ajouter.
+
+        Returns:
+            bool: True si l'épisode a été ajouté avec succès, False sinon.
+
+        """
         if os.path.isfile(file.path) and int(file.season) == int(self.season_number):
             DataBase.add_file(file)
             return True
@@ -1532,7 +1547,6 @@ class Episode(Server):
         self.path = path
         self.parent = season
         self.file_name = os.path.splitext(os.path.basename(path))[0]
-        print(self.file_name)
         self.season = self.parent.season_number
         self.ep = int(self.file_name.split(" - ")[1].split("E")[-1])
         self.codec = self.file_name.split(" - ")[2].split(" ")[-1].split("]")[0]
@@ -1545,6 +1559,8 @@ class Episode(Server):
 
 
 def choose_best_version(v_cur: Episode, v_new: SorterShows) -> SorterShows | Episode:
+    if not os.path.isfile(v_cur.path):
+        return v_new
     if "judas" in v_new.file_name.lower():
         return v_new
     elif "judas" in v_cur.file_name.lower():
@@ -1642,17 +1658,6 @@ class DataBase(Server):
 
         Returns:
             Anime or Show or Movie or bool: The found media object or False if not found.
-
-        Example:
-        --------
-        >>> media_manager = DataBase()
-        >>> result = media_manager.find("My Anime", anime=True)
-        >>> if isinstance(result, Anime):
-        ...     print(result.title)
-        ... elif result is False:
-        ...     print("Anime not found")
-        ...
-        'Anime not found'
         """
 
         if not isinstance(title, str):
@@ -1785,7 +1790,7 @@ class DataBase(Server):
         if info is None:
             return False
 
-        path = os.path.join(self.get_dir_freer(anime, shows, movie), info[title_info])
+        path = os.path.join(self.get_dir_freer(anime, shows, movie), forbidden_car(info[title_info]))
         os.makedirs(path, exist_ok=True)
         if (anime or shows):
             season_dict = {}
@@ -1851,7 +1856,7 @@ class DataBase(Server):
                 return True
             elif choose_best_version(ep, file) == file:
                 save_path = DataBase.add_ep_database(file)
-                delete_path = DataBase.delete_episode(file.id, int(season), int(file.ep))
+                delete_path = DataBase.delete_episode(file.id, int(file.season), int(file.ep), show=file.show.is_show, anime=(not file.show.is_show))
                 if delete_path is not False and os.path.isfile(delete_path):
                     os.remove(delete_path)
                 safe_move(file.path, save_path)
@@ -2194,8 +2199,10 @@ class DataBase(Server):
         for file in list_file:
             if os.path.isfile(file) and is_video(file):
                 try:
-                    if shows or anime:
+                    if shows:
                         s = SorterShows(file, file_reachable=True)
+                    if anime:
+                        s = SorterShows(file, file_reachable=True, is_anime=True)
                     elif movie:
                         s = Sortermovie(file, file_reachable=True)
                     if self.add(s.title, anime, shows, movie):
@@ -2278,6 +2285,8 @@ class Feed(DataBase):
         return rss_feeds
 
     def get_ep_with_link(self, feed: feedparser.FeedParserDict, feed_title: str) -> dict:
+        if not isinstance(feed, feedparser.FeedParserDict):
+            raise ValueError(f"feed should be feedparser.FeedParserDict not {type(feed)}")
         dicto = {}
         for entry in feed.entries:
             is_selected = False
@@ -2323,7 +2332,10 @@ class Feed(DataBase):
                         ep += ".mkv"
                     if not "movie" in feed_list:
                         try:
-                            ep = SorterShows(ep, for_test=True)
+                            if "anime" in feed_list:
+                                ep = SorterShows(ep, file_reachable=False, is_anime=True)
+                            elif "show" in feed_list:
+                                ep = SorterShows(ep, file_reachable=False)
                             if Feed.feed_storage.get(str(ep.id), None) is None:
                                 Feed.feed_storage[str(ep.id)] = {}
                             if Feed.feed_storage[str(ep.id)].get(ep.season, None) is None:
@@ -2355,7 +2367,7 @@ class Feed(DataBase):
                                     pass
                     else:
                         try:
-                            mv = SorterShows(ep, is_movie=True, for_test=True)
+                            mv = Sortermovie(ep, file_reachable=False)
                         except AttributeError:
                             ...
                         except requests.exceptions.ReadTimeout:
@@ -2451,16 +2463,6 @@ class web_API(Server):
         @self.app.route('/alive')
         def alive():
             return jsonify(True)
-
-        @self.app.route('/db/space')
-        def space():
-            for list_dir in self.db.movie_dirs:
-                return jsonify()
-
-        @self.app.route('/restart')
-        def restart():
-            os.system(REBOOT)
-            return jsonify({"status": "ok"})
 
         @self.app.route("/movie/size")
         def movie_size():
@@ -2584,39 +2586,32 @@ class Gg_drive():
     def __init__(self):
         self.d_dirs = Server.conf["GGD_dir"]
 
-        self.exclude_dir = ["G:\Drive partagés\Judas - DDL (Full) (provided by BanglaDubZone)\[Judas] DDL exclusives",
-                            "G:\Drive partagés\Judas - DDL (Full) (provided by BanglaDubZone)\[Judas] Bluray releases\My old releases as member of Hakata Ramen group",
-                            "G:\Drive partagés\Judas - DDL (Full) (provided by BanglaDubZone)\[Judas] Webrip batches\My old releases as member of Hakata Ramen group"]
-
-    def to_exlude(self, path):
-        for p in self.exclude_dir:
-            if p in path:
-                return True
-        return False
-
-    def update_dict_ep(self, fast=False):
+    def update_dict_ep(self):
+        # add list all file and update Server.TASK_GGD_SCAN so we can track evolution
+        Server.TASK_GGD_SCAN = 0
         list_files = []
         if type(self.d_dirs) == str:
             list_files = list_all_files(self.d_dirs)
         else:
             for dir in self.d_dirs:
                 list_files += list_all_files(dir)
+        total_file = len(list_files)
+        compteur_file = 0
         dictionary_episode = {}
         for episode_path in list_files:
-            if self.to_exlude(episode_path):
-                pass
-            elif is_video(episode_path):
-                movie = is_movie(episode_path)
+            if is_video(episode_path):
                 try:
                     try:
-                        ep_info = SorterShows(episode_path, movie, for_test=fast)
+                        ep_info = SorterShows(episode_path)
                     except subprocess.CalledProcessError as e:
                         try:
-                            ep_info = SorterShows(episode_path, movie, for_test=fast)
+                            ep_info = SorterShows(episode_path)
                         except subprocess.CalledProcessError:
                             continue
                         except UnicodeError:
                             continue
+                    except ValueError as e:
+                        print(e)
                     id = str(ep_info.id)
                     season = str(ep_info.season)
                     ep = str(ep_info.ep)
@@ -2626,27 +2621,20 @@ class Gg_drive():
                         Gg_drive.dict_ep[id][season] = {}
                     if Gg_drive.dict_ep[id][season].get(ep, None) is None:
                         Gg_drive.dict_ep[id][season][ep] = {}
-                    if not fast:
 
-                        Gg_drive.dict_ep[id][season][ep][ep_info.path] = {
-                            "renamed": ep_info.__str__(),
-                            "language": ep_info.lang,
-                            "list_subs_language": ep_info.list_subs_lang,
-                            "list_audio_language": ep_info.list_audio_lang,
-                            "title": ep_info.title,
-                            "height": ep_info.resolution,
-                            "codec": ep_info.codec,
-                        }
-
-                    else:
-                        Gg_drive.dict_ep[ep_info.id][ep_info.season][ep_info.ep][ep_info.path] = {
-                            "renamed": ep_info.__str__(),
-                            "title": ep_info.title,
-                            "season_number": ep_info.season,
-                        }
+                    Gg_drive.dict_ep[id][season][ep][ep_info.path] = {
+                        "renamed": ep_info.__str__(),
+                        "language": ep_info.lang,
+                        "list_subs_language": ep_info.list_subs_lang,
+                        "list_audio_language": ep_info.list_audio_lang,
+                        "title": ep_info.title,
+                        "height": ep_info.resolution,
+                        "codec": ep_info.codec,
+                    }
                 except AttributeError as e:
                     pass
-
+            compteur_file +=1
+            Server.TASK_GGD_SCAN = round((compteur_file/total_file)*100, 2)
         json.dump(Gg_drive.dict_ep, open(os.path.join(VAR_DIR, GGD_LIB), "w", encoding="utf-8"), indent=5)
         return dictionary_episode
 
@@ -2667,19 +2655,17 @@ class deployServ():
 
     def start(self):
         try:
-            # api = threading.Thread(target=self.web_api.run)
-            # api.start()
+            api = threading.Thread(target=self.web_api.run)
+            api.start()
 
             db = threading.Thread(target=self.db.serve_forever)
             db.start()
             if Server.conf["GGD"]:
-                ...
-                # GGD = threading.Thread(target=self.GGD.run)
-                # GGD.start()
+                GGD = threading.Thread(target=self.GGD.run)
+                GGD.start()
             if Server.conf["Downloader"]:
-                ...
-                # dl = threading.Thread(target=self.dl.run)
-                # dl.start()
+                dl = threading.Thread(target=self.dl.run)
+                dl.start()
 
             while True:
                 if len(self.web_api.cpu_temp_list) > 120:
@@ -2690,13 +2676,13 @@ class deployServ():
 
             print("wait before closing saving data")
             print("saving GGD_lib")
-            # json.dump(Gg_drive.dict_ep, open(os.path.join(VAR_DIR, GGD_LIB), "w", encoding="utf-8"), indent=5)
+            json.dump(Gg_drive.dict_ep, open(os.path.join(VAR_DIR, GGD_LIB), "w", encoding="utf-8"), indent=5)
             print("saving tmdb_title ...")
             self.db.save_tmdb_title()
             print("saving tmdb_db ...")
             json.dump(Server.tmdb_db, open(os.path.join(VAR_DIR, TMDB_DB), "w", encoding="utf-8"), indent=5)
             print("Saving feed storage ...")
-            # json.dump(Feed.feed_storage, open(os.path.join(VAR_DIR, FEED_STORAGE), "w", encoding="utf-8"), indent=5)
+            json.dump(Feed.feed_storage, open(os.path.join(VAR_DIR, FEED_STORAGE), "w", encoding="utf-8"), indent=5)
             print("Shutting down")
             quit()
 
