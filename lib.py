@@ -8,6 +8,7 @@ import threading
 import time
 from typing import Dict, Union
 
+import appdirs
 import feedparser
 import psutil
 import pythoncom
@@ -16,33 +17,26 @@ import tmdbsimple as tmdb
 from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
-
 if platform.system() == "Windows":
     import ctypes, wmi
 
-    PYTHON = "python"
-    NTERM = "start"
-    REBOOT = "shutdown /r"
-    VAR_DIR = "C:\\Users\\benja\\AppData\\Local\\my-server"
-elif platform.system() == "Linux":
-    PYTHON = "python3"
-    NTERM = "gnome-terminal --"
-    REBOOT = "reboot"
-    VAR_DIR = "/var/lib/my-server"
-
+APP_NAME = "Media-Manager"
+APP_AUTHOR = "Strange"
+VAR_DIR = appdirs.user_cache_dir(appname=APP_NAME, appauthor=APP_AUTHOR)
+CONF_DIR = appdirs.user_config_dir(appname=APP_NAME, appauthor=APP_AUTHOR)
 CONF_FILE = "server.conf"
-TMDB_TITLE = os.path.join("lib", "tmdb_tile.json")
+TMDB_TITLE = os.path.join("data", "tmdb_tile.json")
 ANIME_LIB = os.path.join("lib", "anime.json")
 SHOWS_LIB = os.path.join("lib", "shows.json")
 MOVIES_LIB = os.path.join("lib", "movie.json")
-TMDB_DB = os.path.join("lib", "tmdb_db.json")
-FEED_STORAGE = os.path.join("lib", "feed_storage.json")
-RSS_ANIME = "rss_anime.dat"
-RSS_MOVIE = "rss_movie.dat"
-RSS_SHOW = "rss_show.dat"
-QUERY_SHOW = "query_show.dat"
-QUERY_MOVIE = "guery_movie.dat"
-GGD_LIB = os.path.join("lib", "ggd_lib.json")
+TMDB_DB = os.path.join("data", "tmdb_db.json")
+FEED_STORAGE = os.path.join("data", "feed_storage.json")
+RSS_ANIME = os.path.join("rss", "rss_anime.dat")
+RSS_MOVIE = os.path.join("rss", "rss_movie.dat")
+RSS_SHOW = os.path.join("rss", "rss_show.dat")
+QUERY_SHOW = os.path.join("data", "query_show.dat")
+QUERY_MOVIE = os.path.join("data", "guery_movie.dat")
+GGD_LIB = os.path.join("data", "ggd_lib.json")
 list_language = ["french"]
 SUB_LIST = {"VOSTFR": "fre", "OmdU": "ger"}
 
@@ -127,7 +121,7 @@ def safe_move(src, dst, max_retries=2, retry_delay=1):
     if not os.path.isfile(src):
         raise FileNotFoundError(f"{src} is not a file")
 
-    if is_video(src):  # Assuming there's a separate function called 'is_video' to check if it's a video file
+    if is_video(src):
         retries = 0
         while retries < max_retries:
             try:
@@ -506,12 +500,11 @@ class Server():
 
     TASK_GGD_SCAN = 100
 
-    def load_config(lib: str | None = VAR_DIR) -> dict:
+    def load_config(lib: str | None = CONF_DIR) -> dict:
         """
         List of all elements contained in the config:
         - shows_dir
         - movie_dir
-        - serv_dir
         - download_dir
         - sorter_anime_dir
         - clip_load
@@ -2688,10 +2681,10 @@ class deployServ():
 
 
 def main():
+    os.makedirs(VAR_DIR, exist_ok=True)
+    os.makedirs(CONF_DIR, exist_ok=True)
     server = deployServ()
     server.start()
-    ...
-    # db.serve_forever()
 
 
 if __name__ == "__main__":
