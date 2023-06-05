@@ -1114,6 +1114,7 @@ class DataBase(Server):
                     f"Database error: no current_episode associated with the anime {id} season {season}, please check JSON")
 
             DataBase.animes[id]["seasons"][season]["current_episode"][ep] = {
+                "original_filename": file.file_name,
                 "renamed": file.__str__(),
                 "path": path,
                 "language": file.lang,
@@ -1140,6 +1141,7 @@ class DataBase(Server):
         path = os.path.join(folder_path, file.__str__())
 
         DataBase.movies[id]["file"] = {
+            "original_filename": file.file_name,
             "renamed": file.__str__(),
             "path": path,
             "language": file.lang,
