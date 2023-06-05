@@ -1,16 +1,16 @@
-from typing import Dict, Union
-
-import appdirs
 import ctypes
 import datetime
 import json
 import os
 import platform
-import requests
 import shutil
-import time
-import tmdbsimple as tmdb
 import socket
+import time
+from typing import Dict, Union
+
+import appdirs
+import requests
+import tmdbsimple as tmdb
 
 hostname = socket.gethostname()
 IP = socket.gethostbyname(hostname)
@@ -34,6 +34,9 @@ QUERY_MOVIE = os.path.join("data", "guery_movie.dat")
 GGD_LIB = os.path.join("data", "ggd_lib.json")
 list_language = ["french"]
 SUB_LIST = {"VOSTFR": "fre", "OmdU": "ger"}
+
+os.makedirs(VAR_DIR, exist_ok=True)
+os.makedirs(CONF_DIR, exist_ok=True)
 
 
 def list_all_files(directory: str) -> list:
@@ -484,6 +487,7 @@ class Server():
         if os.path.isfile(path) and check_json(path):
             pass
         else:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
             if "json" in file:
                 os.makedirs(os.path.dirname(path), exist_ok=True)
                 json.dump({}, open(path, "w"))

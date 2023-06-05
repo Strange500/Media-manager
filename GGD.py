@@ -1,5 +1,6 @@
 from Database import *
 
+
 class Gg_drive():
     dict_ep = json.load(open(os.path.join(VAR_DIR, GGD_LIB), "r", encoding="utf-8"))
 
@@ -31,7 +32,7 @@ class Gg_drive():
                         except UnicodeError:
                             continue
                     except ValueError as e:
-                        print(e)
+                        continue
                     id = str(ep_info.id)
                     season = str(ep_info.season)
                     ep = str(ep_info.ep)
@@ -43,6 +44,7 @@ class Gg_drive():
                         Gg_drive.dict_ep[id][season][ep] = {}
 
                     Gg_drive.dict_ep[id][season][ep][ep_info.path] = {
+                        "original_filename": ep_info.file_name,
                         "renamed": ep_info.__str__(),
                         "language": ep_info.lang,
                         "list_subs_language": ep_info.list_subs_lang,
@@ -53,8 +55,8 @@ class Gg_drive():
                     }
                 except AttributeError as e:
                     pass
-            compteur_file +=1
-            Server.TASK_GGD_SCAN = round((compteur_file/total_file)*100, 2)
+            compteur_file += 1
+            Server.TASK_GGD_SCAN = round((compteur_file / total_file) * 100, 2)
         json.dump(Gg_drive.dict_ep, open(os.path.join(VAR_DIR, GGD_LIB), "w", encoding="utf-8"), indent=5)
         return dictionary_episode
 

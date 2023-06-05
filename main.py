@@ -1,9 +1,9 @@
-from Downloader import *
+import threading
+
 from API import *
+from Downloader import *
 from GGD import *
 
-
-import threading
 
 class deployServ():
 
@@ -48,9 +48,9 @@ class deployServ():
 
 
 def main():
-
     server = deployServ()
     server.start()
+
 
 if __name__ == "__main__":
     main()

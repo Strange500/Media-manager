@@ -1,5 +1,8 @@
-from Database import *
 import feedparser
+
+from Database import *
+
+
 class Feed(DataBase):
     feed_storage: dict
     feed_storage = json.load(open(os.path.join(VAR_DIR, FEED_STORAGE), "r", encoding="utf-8"))
@@ -54,7 +57,8 @@ class Feed(DataBase):
         return dicto
 
     def sort_feed(self) -> dict:
-
+        dic = {}
+        ls = []
         for feed_list in self.feed_dict:
 
             for feed in self.feed_dict[feed_list]:
