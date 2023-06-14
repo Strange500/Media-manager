@@ -12,6 +12,10 @@ import appdirs
 import requests
 import tmdbsimple as tmdb
 
+if platform.system() == "Linux":
+    import psutil
+elif platform.system() == "Windows":
+    import wmi
 hostname = socket.gethostname()
 IP = socket.gethostbyname(hostname)
 
@@ -473,11 +477,21 @@ def check_json(path):
     except json.decoder.JSONDecodeError:
         return False
 
+def get_temp():
+    if platform.system() == "Linux":
+        return psutil.sensors_temperatures()["k10temp"][0].current
+    else:
+        w = wmi.WMI(namespace="root\OpenHardwareMonitor")
+        temperature_infos = w.Sensor()
+        for sensor in temperature_infos:
+            if sensor.SensorType == u'Temperature' and sensor.name == "CPU Package":
+                return sensor.value
 
 class Server():
     tmdb_title: dict
     tmdb_db: dict
     conf: dict
+    CPU_TEMP: int
 
     list_file = [ANIME_LIB, QUERY_MOVIE, QUERY_SHOW, MOVIES_LIB, SHOWS_LIB, CONF_FILE, TMDB_TITLE, TMDB_DB,
                  RSS_SHOW, RSS_ANIME,
@@ -496,7 +510,7 @@ class Server():
 
     tmdb_db = json.load(open(os.path.join(VAR_DIR, TMDB_DB), "r", encoding="utf-8"))
     tmdb_title = json.load(open(os.path.join(VAR_DIR, TMDB_TITLE), "r", encoding="utf-8"))
-
+    CPU_TEMP = get_temp()
     TASK_GGD_SCAN = 100
 
     def load_config(lib: str | None = CONF_DIR) -> dict:

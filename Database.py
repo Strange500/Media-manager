@@ -1388,6 +1388,8 @@ class DataBase(Server):
                 except subprocess.CalledProcessError as e:
                     print(e)
                     pass
+                except  ValueError as e :
+                    log(e, warning=True)
 
     def serve_forever(self):
         try:

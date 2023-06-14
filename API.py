@@ -74,16 +74,7 @@ class web_API(Server):
 
         @self.app.route("/cpu_temp/current")
         def cpu_temp():
-            pythoncom.CoInitialize()
-            if platform.system() == "Linux":
-                return jsonify({"value": psutil.sensors_temperatures()["k10temp"][0].current})
-            else:
-                w = wmi.WMI(namespace="root\OpenHardwareMonitor")
-                temperature_infos = w.Sensor()
-                for sensor in temperature_infos:
-
-                    if sensor.SensorType == u'Temperature' and sensor.name == "CPU Package":
-                        return jsonify({"value": sensor.value})
+            return jsonify({"value": Server.CPU_TEMP})
 
         @self.app.route("/cpu_temp/avg")
         def cpu_avg():
@@ -138,6 +129,10 @@ class web_API(Server):
 
             return "Téléchargement réussi"
 
+        @self.app.route("/schedule")
+        def get_schedule():
+            DataBase.
+
         def upload_file(app: Flask):
             file = request.files['file']
             if file:
@@ -150,15 +145,8 @@ class web_API(Server):
         self.app.run(host=IP)
 
     def update_cpu_temp(self):
-        if platform.system() == "Linux":
-            self.cpu_temp_list.append(psutil.sensors_temperatures()["k10temp"][0].current)
-        else:
-            w = wmi.WMI(namespace="root\OpenHardwareMonitor")
-            temperature_infos = w.Sensor()
-            for sensor in temperature_infos:
-
-                if sensor.SensorType == u'Temperature' and sensor.name == "CPU Package":
-                    self.cpu_temp_list.append(sensor.value)
+        self.cpu_temp_list.append(Server.CPU_TEMP)
+        Server.CPU_TEMP = get_temp()
 
     def update_cpu_avg(self):
         self.cpu_avg = round(sum(self.cpu_temp_list) / len(self.cpu_temp_list), 2)
