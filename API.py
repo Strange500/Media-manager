@@ -118,7 +118,7 @@ class web_API(Server):
                                        "total_size": total_size,
                                        "percent": progress,
                                        "downloaded": downloaded_size}
-            return torrents_info
+            return jsonify(torrents_info)
 
         @self.app.route("/tmdb/search", methods=['POST'])
         def seach_tmdb_show():
