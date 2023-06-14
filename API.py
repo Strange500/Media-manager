@@ -1,8 +1,21 @@
-from Database import *
+import psutil
+import pythoncom
+import qbittorrentapi
+import wmi
 from flask import Flask, jsonify, request, abort
-from werkzeug.utils import secure_filename
 from flask_cors import CORS
-import psutil, pythoncom, wmi
+from werkzeug.utils import secure_filename
+
+from Database import *
+
+qbit_conn_info = dict(
+    host="localhost",
+    port=8080,
+    username="admin",
+    password="Boubou1208"
+)
+
+
 class web_API(Server):
 
     def __init__(self, db: DataBase):
@@ -80,6 +93,23 @@ class web_API(Server):
         def cpu_avg():
             self.update_cpu_avg()
             return jsonify({"value": self.cpu_avg})
+
+        @self.app.route("/torrent/donwloading")
+        def get_downloading_torrent():
+            q = qbittorrentapi.Client(**qbit_conn_info)
+            torrents_info = {}
+
+            for torrent in q.torrents_info(status_filter="active"):
+                name = torrent['name']
+                download_speed = torrent.info['dlspeed'] / (1024 * 1024)  # Download speed in MB/s
+                progress = torrent.info['progress'] * 100  # Progress in percentage
+                downloaded_size = torrent.info['downloaded'] / (1024 * 1024)  # Downloaded size in MB
+                total_size = torrent.info['total_size'] / (1024 * 1024)  # Total size in MB
+                torrents_info[name] = {"speed": download_speed,
+                                       "total_size": total_size,
+                                       "percent": progress,
+                                       "downloaded": downloaded_size}
+            return jsonify(torrents_info)
 
         @self.app.route("/tmdb/search", methods=['POST'])
         def seach_tmdb_show():
