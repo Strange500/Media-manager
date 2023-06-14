@@ -1,6 +1,8 @@
+import subprocess
+
 from common import *
 
-import subprocess
+
 class SorterCommon(Server):
 
     def __init__(self, file_path, file_reachable=True):
@@ -152,7 +154,8 @@ class SorterShows(SorterCommon):
     def __init__(self, file_path: str, file_reachable=True, is_anime=False):
         super().__init__(file_path, file_reachable)
         self.season = self.determine_season()
-        self.title = self.determine_title()
+        self.original_title = self.determine_title()
+        self.title = self.original_title
         temp = super().find_tmdb_title(self.title, shows=True)
         if temp == False:
             raise ValueError(f"{file_path}, cannot determine the show")
@@ -278,7 +281,11 @@ class SorterShows(SorterCommon):
         """
 
         file, ls, temp = self.clean_file_name, [], None
+        if self.original_title in file:
+            file = file.split(self.original_title)[-1]
+
         temp_file = file
+
         ls = isolate_numbers(temp_file)
 
         if ls == []:
@@ -315,7 +322,7 @@ class SorterShows(SorterCommon):
                 elif len(ep) == 4:
                     return f"{int(ep):04}"
 
-    def determine_source(self) -> str:
+    def determine_source(self) -> str | None:
         """
         Return the source of a video from its file name.
 
@@ -340,18 +347,24 @@ class SorterShows(SorterCommon):
                 title = title[1:]
             return source
 
-        try:
-            r = title.split(" -")[-1].strip()
-            return r
-        except IndexError:
-            return "NoSource"
+        if "-" in title:
+            file = os.path.splitext(title)[0][::-1].strip()
+            if "-" in file[:15]:
+                return "-".join(file[:15].split("-")[:-1])[::-1]
+        return None
 
     def __str__(self):
         if not self.file_reachable:
+            if self.source == None:
+                return forbidden_car(
+                    f"{self.title} - S{self.season}E{self.ep} {self.ext}")
             return forbidden_car(
                 f"{self.title} - S{self.season}E{self.ep} - {self.source} {self.ext}")
+        if self.source == None:
+            return forbidden_car(
+                f"{self.title} - S{self.season}E{self.ep} - [{self.lang} {self.resolution} {self.codec}] {self.ext}")
         return forbidden_car(
-            f"{self.title} - S{self.season}E{self.ep} - [{self.lang} {self.resolution} {self.codec}] {self.ext}")
+            f"{self.title} - S{self.season}E{self.ep} - [{self.lang} {self.resolution} {self.codec}] -{self.source} {self.ext}")
 
 
 class SorterMovie(SorterCommon):
@@ -483,6 +496,8 @@ class Movie(Server):
                 "codec": file.codec,
             }
             json.dump(DataBase.movies, open(os.path.join(VAR_DIR, MOVIES_LIB), "w", encoding="utf-8"), indent=5)
+
+
 class Show(Server):
 
     def __init__(self, path: str, title: str, is_show=True):
@@ -646,6 +661,7 @@ class Anime(Show):
         """
         super().__init__(path, title, is_show=False)
 
+
 class Season(Server):
     def __init__(self, parent: Show | Anime, path: str, season_number: int):
         if not isinstance(parent, Show):
@@ -727,6 +743,7 @@ class Episode(Server):
     def delete(self):
         os.remove(self.path)
 
+
 def choose_best_version(v_cur: Episode, v_new: SorterShows) -> SorterShows | Episode:
     if not os.path.isfile(v_cur.path):
         return v_new
@@ -736,6 +753,7 @@ def choose_best_version(v_cur: Episode, v_new: SorterShows) -> SorterShows | Epi
         return v_cur
     else:
         return v_new
+
 
 class DataBase(Server):
     try:
@@ -1024,7 +1042,8 @@ class DataBase(Server):
                 return True
             elif choose_best_version(ep, file) == file:
                 save_path = DataBase.add_ep_database(file)
-                delete_path = DataBase.delete_episode(file.id, int(file.season), int(file.ep), show=file.show.is_show, anime=(not file.show.is_show))
+                delete_path = DataBase.delete_episode(file.id, int(file.season), int(file.ep), show=file.show.is_show,
+                                                      anime=(not file.show.is_show))
                 if delete_path is not False and os.path.isfile(delete_path):
                     os.remove(delete_path)
                 safe_move(file.path, save_path)
@@ -1388,7 +1407,7 @@ class DataBase(Server):
                 except subprocess.CalledProcessError as e:
                     print(e)
                     pass
-                except  ValueError as e :
+                except ValueError as e:
                     log(e, warning=True)
 
     def serve_forever(self):
@@ -1430,7 +1449,3 @@ class DataBase(Server):
 
     def save_tmdb_title(self):
         json.dump(Server.tmdb_title, open(os.path.join(VAR_DIR, TMDB_TITLE), "w", encoding="utf-8"), indent=5)
-
-
-
-

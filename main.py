@@ -46,7 +46,30 @@ class deployServ():
             print("Shutting down")
             quit()
 
+def test():
+    ls_anime = ["86 Eighty-Six S01E02 CUSTOM MULTi 1080p 10bits BluRay x265 AAC -Punisher694.mkv",
+                "KonoSuba.An.Explosion.on.This.Wonderful.World.S01E11.SUBFRENCH.1080p.WEB.x264.AAC-Tsundere-Raws.mkv",
+                "Konosuba.An.Explosion.on.this.Wonderful.World.S01E11.SUBFRENCH.1080p.WEB.x264-T3KASHi.mkv",
+                "Iseleve S01E11 VOSTFR WebRip 1080p x265 10bit AAC.mkv",
+                "Dragons Rescue Riders.S01E02.MULTI.1080p.WEB.x264-FTMVHD.mkv",
+                "[Raze] Kono Subarashii Sekai ni Bakuen wo! - 11 x265 10bit 1080p 143.8561fps.mkv",
+                "[ASW] Kaminaki Sekai no Kamisama Katsudou - 10 [1080p HEVC][504C7F1D].mkv",
+                "[Trix] Vinland Saga - S02E23 - (1080p AV1 E-AC3)[Multi Subs].mkv",
+                "[Judas] Vinland Saga - S02E23.mkv",
+                "[Judas] Rougo ni Sonaete Isekai de 8-manmai no Kinka o Tamemasu - S01E01v2.mkv",
+                "Saving 80,000 Gold in Another World for my Retirement - S01E12 (1080p CR WEB-DL -KS-).mkv"]
+    ls_show = ["law.and.order.svu.s23e10.french.720p.hdtv.x264-obstacle.mkv",
+               "Les Feux De L'amour The Young and The Restless S48E0113.mp4",
+               "The.Full.Monty.The.Serie.S01E08.FiNAL.MULTi.HDR.2160p.DSNP.WEB-DL.DDP5.1.H.265-FCK.mkv",
+               "Youre.the.Worst.S03E01.MULTi.1080p.WEB.H264-FW.mkv",
+               "Greys.Anatomy.S19E16.MULTi.1080p.AMZN.WEB-DL.DDP5.1.H.264-FCK.mkv",
+               'Une mauvaise mère __S01E12_2023.VOSTFR.WEB-DL.1080.h264.eac3.kimiko.mkv']
 
+    for file in ls_anime:
+        print(SorterShows(file, file_reachable=False, is_anime=True))
+    print("###################")
+    for file in ls_show:
+        print(SorterShows(file, file_reachable=False, is_anime=False))
 def main():
     server = deployServ()
     server.start()

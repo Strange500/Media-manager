@@ -12,7 +12,7 @@ qbit_conn_info = dict(
     host="localhost",
     port=8080,
     username="admin",
-    password="Boubou1208"
+    password="password"
 )
 
 
@@ -94,7 +94,7 @@ class web_API(Server):
             self.update_cpu_avg()
             return jsonify({"value": self.cpu_avg})
 
-        @self.app.route("/torrent/donwloading")
+        @self.app.route("/torrent/downloading")
         def get_downloading_torrent():
             q = qbittorrentapi.Client(**qbit_conn_info)
             torrents_info = {}
@@ -159,9 +159,6 @@ class web_API(Server):
 
             return "Téléchargement réussi"
 
-        @self.app.route("/schedule")
-        def get_schedule():
-            DataBase.
 
         def upload_file(app: Flask):
             file = request.files['file']
