@@ -1,6 +1,7 @@
 import subprocess
 
 from common import *
+from connectors import *
 
 
 class SorterCommon(Server):
@@ -744,6 +745,101 @@ class Episode(Server):
         os.remove(self.path)
 
 
+class ConnectorShowBase(Server):
+
+    def __init__(self, id: int):
+        super().__init__()
+        self.alt_titles = self.get_titles(id)
+
+    def get_titles(self, id: int) -> list[str] | None:
+        title = self.store_tmdb_info(id, show=True, movie=False)
+        if title is None:
+            raise ValueError(f"No show found for id {id}")
+        else:
+            if title.get("translations", None) is None:
+                raise Exception(f"cannot find all titles for the show {id}")
+            else:
+                if title.get("translations").get("translations", None) is None:
+                    raise Exception(f"cannot find all titles for the show {id}")
+                else:
+                    return [t["data"]["name"] for t in title.get("translations").get("translations") if
+                            t["data"]["name"] != ""]
+
+
+class NyaaConnector(ConnectorShowBase):
+
+    def __init__(self, id: int):
+        super().__init__(id)
+        self.trusted_sources_rss_url = ["https://nyaa.si/?page=rss&q=toreplace&c=0_0&f=0&u=Tsundere-Raws"]
+        self.words = ["1080", "-720"]
+        self.id = id
+
+    def make_url(self, source: str, *arg):
+        text = '(' + ') | ('.join(self.alt_titles) + ')'.replace(" ", "+")
+        title_req = f'({text})'
+        if list(arg) != []:
+            word_req = "+" + "+".join(list(arg))
+        else:
+            word_req = ""
+        req = source.replace("toreplace", f"{title_req}{word_req}").replace(" ", "+")
+        req = correct_and_encode_url(req)
+        if check_url_syntax(req):
+            return req
+        else:
+            return None
+
+    def extract_feed_info(self, url: str):
+        from pprint import pprint
+        feed = feedparser.parse(url)
+        rss_feed = {}
+        for entry in feed.entries:
+            if 'title' in entry and "link" in entry:
+                if os.path.splitext(entry.title)[1] == "":
+                    filename = f"{entry.title}.mkv"
+                else:
+                    filename = entry.title
+                try:
+                    episode = SorterShows(filename, file_reachable=False, is_anime=True)
+                    if rss_feed.get(str(episode.id), None) is None:
+                        rss_feed[str(episode.id)] = {}
+                    if rss_feed[str(episode.id)].get(episode.season, None) is None:
+                        rss_feed[str(episode.id)][episode.season] = {}
+                    if rss_feed[str(episode.id)][episode.season].get(episode.ep, None) is None:
+                        rss_feed[str(episode.id)][episode.season][episode.ep] = []
+                    rss_feed[str(episode.id)][episode.season][episode.ep].append({"original_name": entry.title,
+                                                                                  "link": entry.link})
+                except ValueError as e:
+                    log(e, warning=True)
+
+        pprint(rss_feed)
+        return rss_feed
+
+
+
+
+    def find_ep(self,  season_number: int, episode_number: int):
+        for trusted in self.trusted_sources_rss_url:
+            url = self.make_url(trusted, *self.words)
+            feed = self.extract_feed_info(url)
+            time.sleep(1)
+            print(0)
+            if feed.get(str(self.id), None) is None:
+                print(1)
+                continue
+            if feed[str(self.id)].get(str(season_number).zfill(2), None) is None:
+                print(2)
+                continue
+            if feed[str(self.id)][str(season_number).zfill(2)].get(str(episode_number).zfill(2), None) is None:
+                print(3)
+                continue
+            else:
+                print(4)
+                for ep in feed[str(self.id)][str(season_number).zfill(2)].get(str(episode_number).zfill(2), None):
+                    choice = ep
+                return choice
+
+
+
 def choose_best_version(v_cur: Episode, v_new: SorterShows) -> SorterShows | Episode:
     if not os.path.isfile(v_cur.path):
         return v_new
@@ -1372,6 +1468,67 @@ class DataBase(Server):
             json.dump(DataBase.shows, open(os.path.join(VAR_DIR, SHOWS_LIB), "w", encoding="utf-8"), indent=5)
             return True
 
+    def list_missing_episodes(self):
+        missing_episodes_animes = {}
+        for animes in (self.animes):
+            for seasons in self.animes[animes]["seasons"]:
+                for i in range(1, self.animes[animes]["seasons"][seasons]["season_info"]["episode_count"] + 1):
+                    if self.animes[animes]["seasons"][seasons]["current_episode"].get(str(i).zfill(2), None) is None:
+                        if missing_episodes_animes.get(animes, None) is None:
+                            missing_episodes_animes[animes] = {}
+                        if missing_episodes_animes[animes].get(seasons, None) is None:
+                            missing_episodes_animes[animes][seasons] = []
+                        missing_episodes_animes[animes][seasons].append(str(i).zfill(2))
+                if len(missing_episodes_animes[animes][seasons]) == 1:
+                    if missing_episodes_animes[animes][seasons][0] == "00":
+                        missing_episodes_animes[animes][seasons] = []
+        missing_episodes_shows = {}
+        for shows in (self.shows):
+            for seasons in self.shows[shows]["seasons"]:
+                for i in range(1, self.shows[shows]["seasons"][seasons]["season_info"]["episode_count"] + 1):
+                    if self.shows[shows]["seasons"][seasons]["current_episode"].get(str(i).zfill(2), None) is None:
+                        if missing_episodes_shows.get(shows, None) is None:
+                            missing_episodes_shows[shows] = {}
+                        if missing_episodes_shows[shows].get(seasons, None) is None:
+                            missing_episodes_shows[shows][seasons] = []
+                        missing_episodes_shows[shows][seasons].append(str(i).zfill(2))
+                if len(missing_episodes_shows[shows][seasons]) == 1:
+                    if missing_episodes_shows[shows][seasons][0] == "00":
+                        missing_episodes_shows[shows][seasons] = []
+        return {"anime": missing_episodes_animes, "show": missing_episodes_shows}
+
+    def search_episode_source(self, anime_id:int, season_number:int, episode_number:int) -> str|None:
+        anime = self.store_tmdb_info(anime_id, show=True, movie=False)
+        seasons = anime["seasons"]
+        season = [s for s in seasons if s["season_number"] == season_number]
+        if season == []:
+            raise ValueError(f"The season {season_number} does not exist for show {anime_id}")
+        else:
+            season = season[0]
+        if season["episode_count"] < episode_number:
+            raise ValueError(f"The episode {episode_number} does not exist for show {anime_id} season {season_number}")
+        if Server.feed_storage.get(str(anime_id), None) is not None:
+            if Server.feed_storage.get(str(anime_id)).get(str(season_number).zfill(2), None) is None:
+                pass
+            elif Server.feed_storage.get(str(anime_id)).get(str(season_number).zfill(2)).get(str(episode_number).zfill(2), None) is None:
+                pass
+            else:
+                return Server.feed_storage.get(str(anime_id)).get(str(season_number).zfill(2)).get(str(episode_number).zfill(2))["link"]
+        for connector in Server.connectors:
+            if not isinstance(connector, ConnectorShowBase):
+                raise Exception(f"Malformed connector {connector}")
+            else:
+                result = connector.find_ep(anime_id, season_number, episode_number)
+                if result is not None:
+                    return result
+        return None
+
+
+
+
+
+
+
     def sort(self, anime=False, shows=False, movie=False):
         if anime:
             dir = self.to_sort_anime
@@ -1436,7 +1593,7 @@ class DataBase(Server):
             print("shutting down")
 
     def have_ep(self, file: SorterShows, anime=False, shows=False, movie=False) -> bool:
-        elt = self.find(file.title, anime, shows, movie)
+        elt = DataBase.find(file.title, anime, shows, movie)
         if elt == False:
             return False
         elif not movie:
@@ -1449,3 +1606,9 @@ class DataBase(Server):
 
     def save_tmdb_title(self):
         json.dump(Server.tmdb_title, open(os.path.join(VAR_DIR, TMDB_TITLE), "w", encoding="utf-8"), indent=5)
+
+if __name__=="__main__":
+    n = NyaaConnector(226226)
+    u = n.make_url(n.trusted_sources_rss_url[0],"-720")
+    print(u)
+    print(n.find_ep(1,2))
