@@ -2,7 +2,7 @@ import subprocess
 
 from common import *
 from connectors import *
-
+from pprint import pprint
 
 class SorterCommon(Server):
 
@@ -749,7 +749,8 @@ class ConnectorShowBase(Server):
 
     def __init__(self, id: int):
         super().__init__()
-        self.alt_titles = self.get_titles(id)
+        self.non_target_title_lang = ["ru","ar","he","th","tr","vi", "zh", "uk", "ro", "pt", "ko"]
+        self.alt_titles = list(set(self.get_titles(id)))
 
     def get_titles(self, id: int) -> list[str] | None:
         title = self.store_tmdb_info(id, show=True, movie=False)
@@ -762,9 +763,31 @@ class ConnectorShowBase(Server):
                 if title.get("translations").get("translations", None) is None:
                     raise Exception(f"cannot find all titles for the show {id}")
                 else:
+                    pprint(title.get("translations").get("translations"))
                     return [t["data"]["name"] for t in title.get("translations").get("translations") if
-                            t["data"]["name"] != ""]
+                            t["data"]["name"] != "" and t["iso_639_1"] not in self.non_target_title_lang]
 
+class EraiRawsConnector(ConnectorShowBase):
+
+    def __init__(self, id: int):
+        super().__init__(id)
+        self.trusted_sources_rss_url = ["https://www.erai-raws.info/batches/feed/?res=1080p&type=torrent&subs%5B0%5D=fr&v0=no&0879fd62733b8db8535eb1be24e23f6d"]
+        self.id = id
+
+    def extract_feed_info(self, url: str):
+        feed = feedparser.parse(url)
+        rss_feed = {}
+        for entry in feed.entries:
+            if 'title' in entry and "link" in entry:
+                title = entry.title.split(" ")[1:].split(" - ")
+
+                try:
+                    ... ########################
+                except ValueError as e:
+                    log(e, warning=True)
+
+        pprint(rss_feed)
+        return rss_feed
 
 class NyaaConnector(ConnectorShowBase):
 
@@ -775,6 +798,7 @@ class NyaaConnector(ConnectorShowBase):
         self.id = id
 
     def make_url(self, source: str, *arg):
+        pprint(self.alt_titles)
         text = '(' + ') | ('.join(self.alt_titles) + ')'.replace(" ", "+")
         title_req = f'({text})'
         if list(arg) != []:
@@ -782,14 +806,12 @@ class NyaaConnector(ConnectorShowBase):
         else:
             word_req = ""
         req = source.replace("toreplace", f"{title_req}{word_req}").replace(" ", "+")
-        req = correct_and_encode_url(req)
         if check_url_syntax(req):
             return req
         else:
             return None
 
     def extract_feed_info(self, url: str):
-        from pprint import pprint
         feed = feedparser.parse(url)
         rss_feed = {}
         for entry in feed.entries:
@@ -814,29 +836,24 @@ class NyaaConnector(ConnectorShowBase):
         pprint(rss_feed)
         return rss_feed
 
-
-
-
     def find_ep(self,  season_number: int, episode_number: int):
         for trusted in self.trusted_sources_rss_url:
             url = self.make_url(trusted, *self.words)
             feed = self.extract_feed_info(url)
             time.sleep(1)
-            print(0)
             if feed.get(str(self.id), None) is None:
-                print(1)
                 continue
             if feed[str(self.id)].get(str(season_number).zfill(2), None) is None:
-                print(2)
                 continue
             if feed[str(self.id)][str(season_number).zfill(2)].get(str(episode_number).zfill(2), None) is None:
-                print(3)
                 continue
             else:
                 print(4)
                 for ep in feed[str(self.id)][str(season_number).zfill(2)].get(str(episode_number).zfill(2), None):
                     choice = ep
                 return choice
+
+
 
 
 
@@ -867,6 +884,8 @@ class DataBase(Server):
     except IOError as e:
         log(f"can't acces to {MOVIES_LIB}", error=True)
         quit()
+
+    Server.connectors.append(NyaaConnector)
 
     def __init__(self):
         super().__init__(enable=True)
@@ -1515,10 +1534,11 @@ class DataBase(Server):
             else:
                 return Server.feed_storage.get(str(anime_id)).get(str(season_number).zfill(2)).get(str(episode_number).zfill(2))["link"]
         for connector in Server.connectors:
-            if not isinstance(connector, ConnectorShowBase):
+            con = connector(anime_id)
+            if not isinstance(con, ConnectorShowBase):
                 raise Exception(f"Malformed connector {connector}")
             else:
-                result = connector.find_ep(anime_id, season_number, episode_number)
+                result = con.find_ep(season_number, episode_number)
                 if result is not None:
                     return result
         return None
@@ -1608,7 +1628,6 @@ class DataBase(Server):
         json.dump(Server.tmdb_title, open(os.path.join(VAR_DIR, TMDB_TITLE), "w", encoding="utf-8"), indent=5)
 
 if __name__=="__main__":
-    n = NyaaConnector(226226)
-    u = n.make_url(n.trusted_sources_rss_url[0],"-720")
-    print(u)
-    print(n.find_ep(1,2))
+    db = DataBase()
+
+    print(db.search_episode_source(197368, 1, 2))
