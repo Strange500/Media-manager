@@ -736,6 +736,15 @@ class Server():
         self.update_tmdb_db(info[t], info)
         return info
 
+    def get_tmdb_info_by_id( self, id:int, show: int |None = False, movie: bool |None = False):
+        if not isinstance(id, int):
+            raise TypeError(f"id should be int not {type(id)}")
+        else:
+            for keys in Server.tmdb_db:
+                if Server.tmdb_db[keys]["id"] == id:
+                    return Server.tmdb_db[keys]
+            info = self.store_tmdb_info(id, show=show, movie=movie)
+            return info
     def get_tmdb_info(self, title: str, show=False, movie=False):
         """Retrieves the TMDB information for a given title from the TMDB database.
 

@@ -1,8 +1,14 @@
+import inspect
+import os
 import subprocess
+import time
 
+import requests
+from bs4 import BeautifulSoup
 from common import *
 from connectors import *
 from pprint import pprint
+
 
 class SorterCommon(Server):
 
@@ -746,10 +752,20 @@ class Episode(Server):
 
 
 class ConnectorShowBase(Server):
+    connector_conf_dir = os.path.join(CONF_DIR, "connectors")
+    connector_conf_file = "common.conf"
+    os.makedirs(connector_conf_dir, exist_ok=True)
+
+    if not os.path.isfile(os.path.join(connector_conf_dir, connector_conf_file)):
+        with open(os.path.join(connector_conf_dir, connector_conf_file), "w") as f:
+            ...
 
     def __init__(self, id: int):
         super().__init__()
-        self.non_target_title_lang = ["ru","ar","he","th","tr","vi", "zh", "uk", "ro", "pt", "ko"]
+        self.connector_name = "common"
+
+        # should add config for connector
+        self.non_target_title_lang = ["ru", "ar", "he", "th", "tr", "vi", "zh", "uk", "ro", "pt", "ko", "sk", "ro", "pl", "nl", "lv", "id", "es", "el", "cs", "bg"]
         self.alt_titles = list(set(self.get_titles(id)))
 
     def get_titles(self, id: int) -> list[str] | None:
@@ -763,15 +779,42 @@ class ConnectorShowBase(Server):
                 if title.get("translations").get("translations", None) is None:
                     raise Exception(f"cannot find all titles for the show {id}")
                 else:
-                    pprint(title.get("translations").get("translations"))
                     return [t["data"]["name"] for t in title.get("translations").get("translations") if
                             t["data"]["name"] != "" and t["iso_639_1"] not in self.non_target_title_lang]
+
+    def parse_conf(self, conf_file_path: str):
+        conf = {}
+        with open(conf_file_path, "r") as f:
+            for lines in f:
+                if not lines[0] in ["#", "\n", ""]:
+                    if not " = " in lines:
+                        raise Exception(f"{conf_file_path} malformed at line {lines}")
+                    lines = lines.split(" = ")
+                    key = lines[0]
+                    if lines[1].replace("\n", "") == "FALSE":
+                        value = False
+                    elif lines[1].replace("\n", "") == "TRUE":
+                        value = True
+                    else:
+                        value = lines[1].replace("\n", "").split(" ")
+
+                    conf[key] = value
+        return conf
+
 
 class EraiRawsConnector(ConnectorShowBase):
 
     def __init__(self, id: int):
         super().__init__(id)
-        self.trusted_sources_rss_url = ["https://www.erai-raws.info/batches/feed/?res=1080p&type=torrent&subs%5B0%5D=fr&v0=no&0879fd62733b8db8535eb1be24e23f6d"]
+        self.connector_name = "EraiRaws.conf"
+        self.conf_path = os.path.join(ConnectorShowBase.connector_conf_dir, self.connector_name)
+        if not os.path.isfile(self.conf_path):
+            with open(self.conf_path, "w") as f:
+                f.write(f"active = FALSE\n")
+                f.write(f"trusted_sources_rss_url = PutHereURLForEraiRSSFeed\n")
+        self.conf = self.parse_conf(self.conf_path)
+        self.active = self.conf["active"]
+        self.trusted_sources_rss_url = self.conf["trusted_sources_rss_url"]
         self.id = id
 
     def extract_feed_info(self, url: str):
@@ -782,23 +825,187 @@ class EraiRawsConnector(ConnectorShowBase):
                 title = entry.title.split(" ")[1:].split(" - ")
 
                 try:
-                    ... ########################
+                    ...  ########################
                 except ValueError as e:
                     log(e, warning=True)
 
-        pprint(rss_feed)
         return rss_feed
+
+
+class YggConnector(ConnectorShowBase):
+
+    def __init__(self, id: int):
+        super().__init__(id)
+        self.connector_name = "YggTorrent.conf"
+        self.stored_data_file = "yggdata.dat"
+        self.conf_path = os.path.join(ConnectorShowBase.connector_conf_dir, self.connector_name)
+        if not os.path.isfile(self.conf_path):
+            with open(self.conf_path, "w") as f:
+                f.write(f"active = FALSE\n")
+                f.write(f"pass_key = yourpasskey\n")
+                f.write(f"trusted_sources_rss_url = PutHereURLForEraiRSSFeed\n")
+                f.write(f"trusted_sources_url = putherethesearchpageforyggtorrent")
+        if not os.path.isfile(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file)):
+            with open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w") as f:
+                f.write('{"rss": {},'
+                        ' "web": {} }')
+        with open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "r") as f:
+            self.stored_data = json.load(f)
+        self.conf = self.parse_conf(self.conf_path)
+        self.pass_key = self.conf["pass_key"][0]
+        self.trusted_sources_rss_url = self.conf["trusted_sources_rss_url"]
+        self.trusted_sources_url = self.conf["trusted_sources_url"]
+        self.id = id
+        self.active = self.conf["active"]
+
+    def extract_feed_info(self, url: str):
+        feed = feedparser.parse(url)
+        rss_feed = {}
+        for entry in feed.entries:
+            if 'title' in entry and "link" in entry:
+                title = " ".join(entry.title.split(" ")[:-1])
+                seed_leachers = entry.title.split(" ").pop()
+                seeders = seed_leachers.replace("(S:", "").split("/")[0]
+                size = entry["description"].split(" Taille de l'upload: ")[-1].split(" ")[0]
+                link = [k["href"] for k in entry["links"] if k['rel'] == 'enclosure'][0]
+                if os.path.splitext(title)[1] == "":
+                    title = title+".mkv"
+                try:
+                    episode = SorterShows(title, file_reachable=False, is_anime=False)
+                    if rss_feed.get(str(episode.id), None) is None:
+                        rss_feed[str(episode.id)] = {}
+                    if rss_feed[str(episode.id)].get(episode.season, None) is None:
+                        rss_feed[str(episode.id)][episode.season] = {}
+                    if rss_feed[str(episode.id)][episode.season].get(episode.ep, None) is None:
+                        rss_feed[str(episode.id)][episode.season][episode.ep] = []
+                    rss_feed[str(episode.id)][episode.season][episode.ep].append({"original_name": entry.title,
+                                                                                  "link": link,
+                                                                                  "seeders": seeders,
+                                                                                  "size": size})
+                except ValueError as e:
+                    log(e, warning=True)
+        self.stored_data["rss"] = {**self.stored_data["rss"], **rss_feed}
+        json.dump(self.stored_data, open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
+        return rss_feed
+
+    def get_next_page_url(self, url_base:str, n_total_item:int):
+        if not len([i for i in url_base.split("&") if "page=" in i] ) > 0:
+            n_item = 0
+            url_base = url_base+f"&page={n_item}"
+        else:
+            n_item = int([i for i in url_base.split("&") if "page=" in i][0].split("=")[-1] )
+        if n_item > n_total_item:
+            return None
+        else:
+            n_url = url_base.replace(f"page={n_item}",f"page={n_item+50}")
+            return n_url
+
+    def parse_page(self, url) -> tuple[dict, int] | None:
+        response = requests.request('GET', url)
+        html = BeautifulSoup(response.content, features="html.parser")
+        h2_tags_with_font = [h2_tag for h2_tag in html.find_all("h2") if h2_tag.find("font", style="float: right")]
+        if len(h2_tags_with_font) == 0:
+            return None,None
+        text_contents = [font_tag.text.strip() for h2_tag in h2_tags_with_font for font_tag in
+                         h2_tag.find_all("font")]
+        total_result = int(text_contents[0].split(" ")[0])
+        target_elements = html.find_all("a", id="get_nfo")
+        target_values = [element["target"] for element in target_elements]
+        torrent_name_elements = html.find_all("a", id="torrent_name")
+        torrent_names = [element.text.strip() for element in torrent_name_elements]
+        return {f"{name}":id for name, id in zip(torrent_names, target_values)}, total_result
+    def scrap_ep(self):
+        results = {}
+        feed = {}
+        for titles in self.alt_titles:
+            for url in self.trusted_sources_url:
+                title = titles.replace(" ", "+")
+                url = url.replace("toreplace", title)
+                item, n_tot = self.parse_page(url)
+                if item is None:
+                    continue
+                results = {**results, **item}
+                time.sleep(1)
+
+                url = self.get_next_page_url(url, n_tot)
+                while url is not None:
+                    item,temp = self.parse_page(url)
+                    if item is not None:
+                        results = {**results, **item}
+                    time.sleep(1)
+                    url = self.get_next_page_url(url, n_tot)
+        for torrent in results:
+            orignal_name = torrent
+            sort_name = torrent
+            if os.path.splitext(torrent)[1] == "":
+                sort_name = torrent+".mkv"
+            try:
+                ep = SorterShows(sort_name, file_reachable=False)
+            except ValueError as e:
+                continue
+            id = str(ep.id)
+            if feed.get(id, None) is None:
+                feed[id] = {}
+            if feed[id].get(ep.season, None) is None:
+                feed[id][ep.season] = {}
+            if feed[id][ep.season].get(ep.ep, None) is None:
+                feed[id][ep.season][ep.ep] = []
+            feed[id][ep.season][ep.ep].append({"original_name": orignal_name,
+                                               "link": f"https://www3.yggtorrent.do/rss/download?id={results[torrent]}&passkey={self.pass_key}"})
+        self.stored_data["web"] = {**self.stored_data["web"], **feed}
+        json.dump(self.stored_data, open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
+        return feed
+
+
+
+
+    def find_ep(self,season_number:int, episode_number:int):
+        print(f"searching Yggtorrent rss for {self.alt_titles[0]}")
+        choice = None
+        for trusted in self.trusted_sources_rss_url:
+            feed = self.extract_feed_info(trusted)
+            time.sleep(1)
+            if feed.get(str(self.id), None) is None:
+                continue
+            if feed[str(self.id)].get(str(season_number).zfill(2), None) is None:
+                continue
+            if feed[str(self.id)][str(season_number).zfill(2)].get(str(episode_number).zfill(2), None) is None:
+                continue
+            else:
+                for ep in feed[str(self.id)][str(season_number).zfill(2)].get(str(episode_number).zfill(2), None):
+                    if int(ep["seeders"]) > 0:
+                        choice = ep
+        if choice is None:
+            print(f"episode not found in Yggtorrent rss")
+            print(f"scraping Yggtorrent engine... (this operation can take last)")
+            try:
+                for ep in self.scrap_ep()[str(self.id)][str(season_number).zfill(2)][str(episode_number).zfill(2)]:
+                    if ep != None:
+                        choice = ep
+            except KeyError:
+                choice = None
+
+        return choice
+
 
 class NyaaConnector(ConnectorShowBase):
 
     def __init__(self, id: int):
         super().__init__(id)
-        self.trusted_sources_rss_url = ["https://nyaa.si/?page=rss&q=toreplace&c=0_0&f=0&u=Tsundere-Raws"]
-        self.words = ["1080", "-720"]
+        self.connector_name = "Nyaa.conf"
+        self.conf_path = os.path.join(ConnectorShowBase.connector_conf_dir, self.connector_name)
+        if not os.path.isfile(self.conf_path):
+            with open(self.conf_path, "w") as f:
+                f.write(f"active = FALSE\n")
+                f.write(f"trusted_sources_rss_url = PutHereURLForNyaaRSSFeed\n")
+                f.write(f"words = write words specific to nyaa search engine\n")
+        self.conf = self.parse_conf(self.conf_path)
+        self.trusted_sources_rss_url = self.conf["trusted_sources_rss_url"]
+        self.words = self.conf["words"]
         self.id = id
+        self.active = self.conf["active"]
 
     def make_url(self, source: str, *arg):
-        pprint(self.alt_titles)
         text = '(' + ') | ('.join(self.alt_titles) + ')'.replace(" ", "+")
         title_req = f'({text})'
         if list(arg) != []:
@@ -818,6 +1025,8 @@ class NyaaConnector(ConnectorShowBase):
             if 'title' in entry and "link" in entry:
                 if os.path.splitext(entry.title)[1] == "":
                     filename = f"{entry.title}.mkv"
+                    seeders = entry["nyaa_seeders"]
+                    size = entry["nyaa_size"]
                 else:
                     filename = entry.title
                 try:
@@ -829,14 +1038,15 @@ class NyaaConnector(ConnectorShowBase):
                     if rss_feed[str(episode.id)][episode.season].get(episode.ep, None) is None:
                         rss_feed[str(episode.id)][episode.season][episode.ep] = []
                     rss_feed[str(episode.id)][episode.season][episode.ep].append({"original_name": entry.title,
-                                                                                  "link": entry.link})
+                                                                                  "link": entry.link,
+                                                                                  "seeders": seeders,
+                                                                                  "size": size})
                 except ValueError as e:
                     log(e, warning=True)
 
-        pprint(rss_feed)
         return rss_feed
 
-    def find_ep(self,  season_number: int, episode_number: int):
+    def find_ep(self, season_number: int, episode_number: int):
         for trusted in self.trusted_sources_rss_url:
             url = self.make_url(trusted, *self.words)
             feed = self.extract_feed_info(url)
@@ -848,13 +1058,10 @@ class NyaaConnector(ConnectorShowBase):
             if feed[str(self.id)][str(season_number).zfill(2)].get(str(episode_number).zfill(2), None) is None:
                 continue
             else:
-                print(4)
                 for ep in feed[str(self.id)][str(season_number).zfill(2)].get(str(episode_number).zfill(2), None):
-                    choice = ep
+                    if int(ep["seeders"]) > 0:
+                        choice = ep
                 return choice
-
-
-
 
 
 def choose_best_version(v_cur: Episode, v_new: SorterShows) -> SorterShows | Episode:
@@ -884,8 +1091,6 @@ class DataBase(Server):
     except IOError as e:
         log(f"can't acces to {MOVIES_LIB}", error=True)
         quit()
-
-    Server.connectors.append(NyaaConnector)
 
     def __init__(self):
         super().__init__(enable=True)
@@ -1516,8 +1721,8 @@ class DataBase(Server):
                         missing_episodes_shows[shows][seasons] = []
         return {"anime": missing_episodes_animes, "show": missing_episodes_shows}
 
-    def search_episode_source(self, anime_id:int, season_number:int, episode_number:int) -> str|None:
-        anime = self.store_tmdb_info(anime_id, show=True, movie=False)
+    def search_episode_source(self, anime_id: int, season_number: int, episode_number: int) -> str | None:
+        anime = self.get_tmdb_info_by_id(anime_id, show=True, movie=False)
         seasons = anime["seasons"]
         season = [s for s in seasons if s["season_number"] == season_number]
         if season == []:
@@ -1529,25 +1734,22 @@ class DataBase(Server):
         if Server.feed_storage.get(str(anime_id), None) is not None:
             if Server.feed_storage.get(str(anime_id)).get(str(season_number).zfill(2), None) is None:
                 pass
-            elif Server.feed_storage.get(str(anime_id)).get(str(season_number).zfill(2)).get(str(episode_number).zfill(2), None) is None:
+            elif Server.feed_storage.get(str(anime_id)).get(str(season_number).zfill(2)).get(
+                    str(episode_number).zfill(2), None) is None:
                 pass
             else:
-                return Server.feed_storage.get(str(anime_id)).get(str(season_number).zfill(2)).get(str(episode_number).zfill(2))["link"]
-        for connector in Server.connectors:
+                return Server.feed_storage.get(str(anime_id)).get(str(season_number).zfill(2)).get(
+                    str(episode_number).zfill(2))["link"]
+        for connector in ConnectorShowBase.__subclasses__():
             con = connector(anime_id)
             if not isinstance(con, ConnectorShowBase):
                 raise Exception(f"Malformed connector {connector}")
             else:
-                result = con.find_ep(season_number, episode_number)
-                if result is not None:
-                    return result
+                if con.active:
+                    result = con.find_ep(season_number, episode_number)
+                    if result is not None:
+                        return result
         return None
-
-
-
-
-
-
 
     def sort(self, anime=False, shows=False, movie=False):
         if anime:
@@ -1627,7 +1829,11 @@ class DataBase(Server):
     def save_tmdb_title(self):
         json.dump(Server.tmdb_title, open(os.path.join(VAR_DIR, TMDB_TITLE), "w", encoding="utf-8"), indent=5)
 
-if __name__=="__main__":
-    db = DataBase()
+if __name__ == "__main__":
 
-    print(db.search_episode_source(197368, 1, 2))
+    y = YggConnector(95479)
+    print(y.find_ep(1, 7))
+
+    #db = DataBase()
+
+    #print(db.search_episode_source(123249, 1, 2))
