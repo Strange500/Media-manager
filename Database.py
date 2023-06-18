@@ -1885,6 +1885,25 @@ class DataBase(Server):
                         return result
         return None
 
+    def search_season_source(self, anime_id: int, season_number: int) -> str | None:
+        anime = self.get_tmdb_info_by_id(anime_id, show=True, movie=False)
+        seasons = anime["seasons"]
+        season = [s for s in seasons if s["season_number"] == season_number]
+        if season == []:
+            raise ValueError(f"The season {season_number} does not exist for show {anime_id}")
+        else:
+            season = season[0]
+        for connector in ConnectorShowBase.__subclasses__():
+            con = connector(anime_id)
+            if not isinstance(con, ConnectorShowBase):
+                raise Exception(f"Malformed connector {connector}")
+            else:
+                if con.active and hasattr(connector, "find_batch"):
+                    result = con.find_batch(season_number)
+                    if result is not None:
+                        return result
+        return None
+
     def sort(self, anime=False, shows=False, movie=False):
         if anime:
             dir = self.to_sort_anime
@@ -1965,9 +1984,8 @@ class DataBase(Server):
 
 if __name__ == "__main__":
 
-    y = YggConnector(123249)
-    pprint(y.find_ep(1,1))
 
-    #db = DataBase()
+    db = DataBase()
 
-    #print(db.search_episode_source(123249, 1, 2))
+    print(db.search_episode_source(123249, 1, 2))
+    print(db.search_season_source(123249, 1))
