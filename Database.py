@@ -43,6 +43,7 @@ class SorterCommon(Server):
             self.list_audio_lang = []
             self.resolution = "Unknownp"
 
+
     def make_clean_file_name(self):
         """
         Removes banned characters from the clean file name.
@@ -190,11 +191,17 @@ class SorterShows(SorterCommon):
         season_keywords = ["2nd Season", "1st Season", "3rd Season", "Cour 2"]
         for keyword in season_keywords:
             file = file.replace(keyword, "")
-
+        file = file.replace("INTEGRAL", "").replace("integrale", "").replace("intégrale", "").replace("INTEGRALE", "")
+        if "Season" in file:
+            file = file.split("Season")[0]
+        if "season" in file:
+            file = file.split("season")[0]
+        if "Saison" in file:
+            file = file.split("Saison")[0]
+        if "saison" in file:
+            file = file.split("saison")[0]
         if " - " in file:
             file = file.split(" - ")[0]
-            if "Season" in file:
-                file = file.split("Season")[0]
             if f"S{self.season}" in file:
                 file = file.split(f"S{self.season}")[0]
             if f"S{self.season[1]}" in file:
@@ -855,6 +862,7 @@ class YggConnector(ConnectorShowBase):
         self.pass_key = self.conf["pass_key"][0]
         self.trusted_sources_rss_url = self.conf["trusted_sources_rss_url"]
         self.trusted_sources_url = self.conf["trusted_sources_url"]
+        self.trusted_sources_url_batch = self.conf["trusted_sources_url_batch"]
         self.id = id
         self.active = self.conf["active"]
 
@@ -900,7 +908,23 @@ class YggConnector(ConnectorShowBase):
             n_url = url_base.replace(f"page={n_item}",f"page={n_item+50}")
             return n_url
 
+
     def parse_page(self, url) -> tuple[dict, int] | None:
+        def extract_text_from_tr(html):
+            matching_trs = html.find_all('tr')
+            results = []
+            list_trs = []
+            for tr in matching_trs:
+                for td in tr.find_all("td"):
+                    if td.find("a", {"id": "torrent_name"}) is not  None:
+                        list_trs.append(tr)
+            for tr in list_trs:
+                tds = tr.find_all('td')
+                before_last_td = tds[-2]
+                text = before_last_td.get_text(strip=True)
+                results.append(text)
+
+            return results
         response = requests.request('GET', url)
         html = BeautifulSoup(response.content, features="html.parser")
         h2_tags_with_font = [h2_tag for h2_tag in html.find_all("h2") if h2_tag.find("font", style="float: right")]
@@ -913,7 +937,47 @@ class YggConnector(ConnectorShowBase):
         target_values = [element["target"] for element in target_elements]
         torrent_name_elements = html.find_all("a", id="torrent_name")
         torrent_names = [element.text.strip() for element in torrent_name_elements]
-        return {f"{name}":id for name, id in zip(torrent_names, target_values)}, total_result
+        seeders = extract_text_from_tr(html)
+        return {f"{name}":{"id": id, "seeders":seed } for name, id, seed in zip(torrent_names, target_values, seeders)}, total_result
+
+    def find_from_data_ep(self, season_number:int, episode_number:int) -> list |  None:
+        s = str(season_number).zfill(2)
+        e = str(episode_number).zfill(2)
+        for cat in self.stored_data:
+            if self.stored_data[cat].get(str(self.id), None) is None:
+                continue
+            if self.stored_data[cat][str(self.id)].get(s, None) is None:
+                continue
+            if self.stored_data[cat][str(self.id)][s].get(e, None) is None:
+                continue
+            return self.stored_data[cat][str(self.id)][s][e]
+        return None
+
+    def find_from_data_ep(self, season_number:int, episode_number:int) -> list |  None:
+        s = str(season_number).zfill(2)
+        e = str(episode_number).zfill(2)
+        for cat in self.stored_data:
+            if self.stored_data[cat].get(str(self.id), None) is None:
+                continue
+            if self.stored_data[cat][str(self.id)].get(s, None) is None:
+                continue
+            if self.stored_data[cat][str(self.id)][s].get(e, None) is None:
+                continue
+            return self.stored_data[cat][str(self.id)][s][e]
+        return None
+    def find_from_data_batch(self, season_number:int) -> list |  None:
+        s = str(season_number).zfill(2)
+        for cat in self.stored_data:
+            if self.stored_data[cat].get(str(self.id), None) is None:
+                continue
+            if self.stored_data[cat][str(self.id)].get(s, None) is None:
+                continue
+            if self.stored_data[cat][str(self.id)][s].get("batch", None) is None:
+                continue
+            if len(self.stored_data[cat][str(self.id)][s]["batch"]) == 0:
+                return None
+            return self.stored_data[cat][str(self.id)][s]["batch"]
+        return None
     def scrap_ep(self):
         results = {}
         feed = {}
@@ -947,11 +1011,56 @@ class YggConnector(ConnectorShowBase):
             if feed.get(id, None) is None:
                 feed[id] = {}
             if feed[id].get(ep.season, None) is None:
-                feed[id][ep.season] = {}
+                feed[id][ep.season] = {"batch": []}
             if feed[id][ep.season].get(ep.ep, None) is None:
                 feed[id][ep.season][ep.ep] = []
             feed[id][ep.season][ep.ep].append({"original_name": orignal_name,
-                                               "link": f"https://www3.yggtorrent.do/rss/download?id={results[torrent]}&passkey={self.pass_key}"})
+                                               "link": f"https://www3.yggtorrent.do/rss/download?id={results[torrent]['id']}&passkey={self.pass_key}",
+                                               "seeders": results[torrent]["seeders"]})
+        self.stored_data["web"] = {**self.stored_data["web"], **feed}
+        json.dump(self.stored_data, open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
+        return feed
+
+    def scrap_batch(self):
+        results = {}
+        feed = {}
+        for titles in self.alt_titles:
+            for url in self.trusted_sources_url_batch:
+                title = titles.replace(" ", "+")
+                url = url.replace("toreplace", title)
+                item, n_tot = self.parse_page(url)
+                if item is None:
+                    continue
+                results = {**results, **item}
+                time.sleep(1)
+
+                url = self.get_next_page_url(url, n_tot)
+                while url is not None:
+                    item,temp = self.parse_page(url)
+                    if item is not None:
+                        results = {**results, **item}
+                    time.sleep(1)
+                    url = self.get_next_page_url(url, n_tot)
+        for torrent in results:
+            orignal_name = torrent
+            sort_name = torrent
+            season = None
+
+            if os.path.splitext(torrent)[1] == "":
+                sort_name = torrent+".mkv"
+            try:
+                ep = SorterShows(sort_name, file_reachable=False)
+            except ValueError as e:
+                print(e)
+                continue
+            id = str(ep.id)
+            if feed.get(id, None) is None:
+                feed[id] = {}
+            if feed[id].get(ep.season, None) is None:
+                feed[id][ep.season] = {"batch": []}
+            feed[id][ep.season]["batch"].append({"original_name": orignal_name,
+                                               "link": f"https://www3.yggtorrent.do/rss/download?id={results[torrent]['id']}&passkey={self.pass_key}",
+                                                 "seed": results[torrent]['seeders']})
         self.stored_data["web"] = {**self.stored_data["web"], **feed}
         json.dump(self.stored_data, open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
         return feed
@@ -960,6 +1069,10 @@ class YggConnector(ConnectorShowBase):
 
 
     def find_ep(self,season_number:int, episode_number:int):
+        print("searching in database...")
+        db_results = self.find_from_data_ep(season_number, episode_number)
+        if db_results is not None:
+            return db_results[0]
         print(f"searching Yggtorrent rss for {self.alt_titles[0]}")
         choice = None
         for trusted in self.trusted_sources_rss_url:
@@ -980,8 +1093,29 @@ class YggConnector(ConnectorShowBase):
             print(f"scraping Yggtorrent engine... (this operation can take last)")
             try:
                 for ep in self.scrap_ep()[str(self.id)][str(season_number).zfill(2)][str(episode_number).zfill(2)]:
+                    if int(ep['seeders']) == 0:
+                        continue
                     if ep != None:
                         choice = ep
+            except KeyError:
+                choice = None
+
+        return choice
+
+    def find_batch(self,season_number:int):
+        print("searching in database...")
+        db_results = self.find_from_data_batch(season_number)
+        if db_results is not None:
+            return db_results[0]
+        choice = None
+        if choice is None:
+            print(f"scraping Yggtorrent engine... (this operation can take last)")
+            try:
+                for batch in self.scrap_batch()[str(self.id)][str(season_number).zfill(2)]["batch"]:
+                    if int(batch["seed"]) == 0:
+                        continue
+                    if batch != None:
+                        choice = batch
             except KeyError:
                 choice = None
 
@@ -1831,8 +1965,8 @@ class DataBase(Server):
 
 if __name__ == "__main__":
 
-    y = YggConnector(95479)
-    print(y.find_ep(1, 7))
+    y = YggConnector(123249)
+    pprint(y.find_ep(1,1))
 
     #db = DataBase()
 
