@@ -776,7 +776,7 @@ class ConnectorShowBase(Server):
         self.alt_titles = list(set(self.get_titles(id)))
 
     def get_titles(self, id: int) -> list[str] | None:
-        title = self.store_tmdb_info(id, show=True, movie=False)
+        title = self.get_tmdb_info_by_id(id, show=True, movie=False)
         if title is None:
             raise ValueError(f"No show found for id {id}")
         else:
@@ -809,34 +809,7 @@ class ConnectorShowBase(Server):
         return conf
 
 
-class EraiRawsConnector(ConnectorShowBase):
 
-    def __init__(self, id: int):
-        super().__init__(id)
-        self.connector_name = "EraiRaws.conf"
-        self.conf_path = os.path.join(ConnectorShowBase.connector_conf_dir, self.connector_name)
-        if not os.path.isfile(self.conf_path):
-            with open(self.conf_path, "w") as f:
-                f.write(f"active = FALSE\n")
-                f.write(f"trusted_sources_rss_url = PutHereURLForEraiRSSFeed\n")
-        self.conf = self.parse_conf(self.conf_path)
-        self.active = self.conf["active"]
-        self.trusted_sources_rss_url = self.conf["trusted_sources_rss_url"]
-        self.id = id
-
-    def extract_feed_info(self, url: str):
-        feed = feedparser.parse(url)
-        rss_feed = {}
-        for entry in feed.entries:
-            if 'title' in entry and "link" in entry:
-                title = entry.title.split(" ")[1:].split(" - ")
-
-                try:
-                    ...  ########################
-                except ValueError as e:
-                    log(e, warning=True)
-
-        return rss_feed
 
 
 class YggConnector(ConnectorShowBase):
@@ -852,6 +825,7 @@ class YggConnector(ConnectorShowBase):
                 f.write(f"pass_key = yourpasskey\n")
                 f.write(f"trusted_sources_rss_url = PutHereURLForEraiRSSFeed\n")
                 f.write(f"trusted_sources_url = putherethesearchpageforyggtorrent")
+                f.write(f"trusted_sources_url_batch = urlbatches")
         if not os.path.isfile(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file)):
             with open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w") as f:
                 f.write('{"rss": {},'
@@ -1090,7 +1064,7 @@ class YggConnector(ConnectorShowBase):
                         choice = ep
         if choice is None:
             print(f"episode not found in Yggtorrent rss")
-            print(f"scraping Yggtorrent engine... (this operation can take last)")
+            print(f"scraping Yggtorrent engine... (this operation can few seconds)")
             try:
                 for ep in self.scrap_ep()[str(self.id)][str(season_number).zfill(2)][str(episode_number).zfill(2)]:
                     if int(ep['seeders']) == 0:
