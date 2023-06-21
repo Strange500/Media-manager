@@ -1048,11 +1048,9 @@ class YggConnector(ConnectorShowBase):
     def find_ep(self, season_number: int, episode_number: int, anime=False, show=False):
         if not (anime or show):
             raise ValueError("You should choose anime or show in function parameter")
-        db_results = self.find_from_data_ep(season_number, episode_number)
+        db_results, choice, trusted_source = self.find_from_data_ep(season_number, episode_number), None, None
         if db_results is not None:
             return db_results[0]
-        choice = None
-        trusted_source = None
         if anime:
             trusted_source = self.trusted_sources_rss_anime
         elif show:
@@ -1060,11 +1058,7 @@ class YggConnector(ConnectorShowBase):
         for trusted in trusted_source:
             feed = self.extract_feed_info(trusted)
             time.sleep(1)
-            if feed.get(str(self.id), None) is None:
-                continue
-            if feed[str(self.id)].get(str(season_number).zfill(2), None) is None:
-                continue
-            if feed[str(self.id)][str(season_number).zfill(2)].get(str(episode_number).zfill(2), None) is None:
+            if self.dict_have_ep(feed, self.id, season_number, episode_number) is None:
                 continue
             else:
                 for ep in feed[str(self.id)][str(season_number).zfill(2)].get(str(episode_number).zfill(2), None):
@@ -1084,7 +1078,7 @@ class YggConnector(ConnectorShowBase):
                     elif ep is not None:
                         choice = ep
             except KeyError:
-                choice = None
+                return None
 
         return choice
 
@@ -1869,15 +1863,11 @@ class DataBase(Server):
             season = season[0]
         if season["episode_count"] < episode_number:
             raise ValueError(f"The episode {episode_number} does not exist for show {anime_id} season {season_number}")
-        if Server.feed_storage.get(str(anime_id), None) is not None:
-            if Server.feed_storage.get(str(anime_id)).get(str(season_number).zfill(2), None) is None:
-                pass
-            elif Server.feed_storage.get(str(anime_id)).get(str(season_number).zfill(2)).get(
-                    str(episode_number).zfill(2), None) is None:
-                pass
-            else:
-                return Server.feed_storage.get(str(anime_id)).get(str(season_number).zfill(2)).get(
-                    str(episode_number).zfill(2))
+        if self.dict_have_ep(Server.feed_storage, anime_id, season_number, episode_number) is None:
+            pass
+        else:
+            return Server.feed_storage.get(str(anime_id)).get(str(season_number).zfill(2)).get(
+                str(episode_number).zfill(2))
         for connector in ConnectorShowBase.__subclasses__():
             con = connector(anime_id)
             if not isinstance(con, ConnectorShowBase):
@@ -1933,7 +1923,7 @@ class DataBase(Server):
             anime = target == "anime"
             show_status = not anime
             for show in list_missing[target]:
-                info = self.get_tmdb_info_by_id(int(show))
+                info = self.get_tmdb_info_by_id(int(show), show=True)
                 if info is None:
                     continue
                 for season in list_missing[target][show]:
@@ -2033,5 +2023,7 @@ class DataBase(Server):
 
 
 if __name__ == "__main__":
+    d = DataBase()
+    d.fetch_missing_ep()
     pass
 

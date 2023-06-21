@@ -853,3 +853,12 @@ class Server():
         else:
             Server.tmdb_db.pop(title)
             return True
+
+    def dict_have_ep(self, dic: dict, identifier: int, season: int, episode: int)->None | bool:
+        if dic.get(str(identifier), None) is None:
+            return None
+        if dic[str(identifier)].get(str(season).zfill(2), None) is None:
+            return None
+        if dic[str(identifier)][str(season).zfill(2)].get(str(episode).zfill(2), None) is None:
+            return None
+        return True
