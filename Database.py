@@ -806,6 +806,14 @@ class ConnectorShowBase(Server):
                     conf[key] = value
         return conf
 
+    def extract_better_version(self, results):
+        choice = None
+        for ep in results:
+            if int(ep['seeders']) == 0:
+                pass
+            elif ep is not None:
+                choice = ep
+        return choice
 
 class YggConnector(ConnectorShowBase):
     id_parsed_ep = []
@@ -1061,9 +1069,7 @@ class YggConnector(ConnectorShowBase):
             if self.dict_have_ep(feed, self.id, season_number, episode_number) is None:
                 continue
             else:
-                for ep in feed[str(self.id)][str(season_number).zfill(2)].get(str(episode_number).zfill(2), None):
-                    if int(ep["seeders"]) > 0:
-                        choice = ep
+                choice = feed[str(self.id)][str(season_number).zfill(2)].get(str(episode_number).zfill(2), None)
         if choice is None:
             try:
                 if self.id in YggConnector.id_parsed_ep:
@@ -1072,11 +1078,7 @@ class YggConnector(ConnectorShowBase):
                     print(f"scraping Yggtorrent batches engine... (this operation can take last)")
                     results = self.scrap_ep(anime, show)
                     YggConnector.id_parsed_ep.append(self.id)
-                for ep in results[str(self.id)][str(season_number).zfill(2)][str(episode_number).zfill(2)]:
-                    if int(ep['seeders']) == 0:
-                        continue
-                    elif ep is not None:
-                        choice = ep
+                choice = self.extract_better_version(results[str(self.id)][str(season_number).zfill(2)][str(episode_number).zfill(2)])
             except KeyError:
                 return None
 
