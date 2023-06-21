@@ -579,7 +579,6 @@ class Server():
             if config.get("Downloader"):
                 if config["Downloader"] == "FALSE":
                     config.pop("download_dir", None)
-                    config.pop("torrent_dir", None)
                 elif config["Downloader"] == "TRUE":
                     pass
                 else:
@@ -779,7 +778,7 @@ class Server():
         info = Server.tmdb_db.get(title, None)
         if info is not None:
             if show:
-                if info.get("seasons") is None:
+                if info.get("seasons", None) is None:
                     self.store_tmdb_info(info["id"], show=True, movie=False)
                     info = Server.tmdb_db.get(title, None)
                 return info
@@ -787,12 +786,11 @@ class Server():
                 return info
         else:
             found_title = self.find_tmdb_title(title, shows=True)
+            print(title, found_title)
             info = Server.tmdb_db.get(found_title, None)
-            if info is False:
-                return None
             return info
 
-    def find_tmdb_title(self, title: str, anime=False, shows=False, movie=False) -> str | False:
+    def find_tmdb_title(self, title: str, anime=False, shows=False, movie=False) -> str | bool:
         """Finds the TMDB title for a given title and stores it in the TMDB database if not already present. Also using this function add all related information tmdb_db
 
         This method searches for a TMDB title based on the given title. If the TMDB title is already present in the
@@ -855,3 +853,12 @@ class Server():
         else:
             Server.tmdb_db.pop(title)
             return True
+
+    def dict_have_ep(self, dic: dict, identifier: int, season: int, episode: int)->None | bool:
+        if dic.get(str(identifier), None) is None:
+            return None
+        if dic[str(identifier)].get(str(season).zfill(2), None) is None:
+            return None
+        if dic[str(identifier)][str(season).zfill(2)].get(str(episode).zfill(2), None) is None:
+            return None
+        return True

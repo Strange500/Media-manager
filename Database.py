@@ -1,3 +1,4 @@
+import os.path
 import subprocess
 
 from bs4 import BeautifulSoup
@@ -797,6 +798,8 @@ class ConnectorShowBase(Server):
                         value = False
                     elif lines[1].replace("\n", "") == "TRUE":
                         value = True
+                    elif lines[1].replace("\n", "") == "NONE":
+                        value = []
                     else:
                         value = lines[1].replace("\n", "").split(" ")
 
@@ -805,20 +808,26 @@ class ConnectorShowBase(Server):
 
 
 class YggConnector(ConnectorShowBase):
+    id_parsed_ep = []
+    id_parsed_batches = []
 
     def __init__(self, id: int):
         super().__init__(id)
         self.connector_name = "YggTorrent.conf"
-        self.stored_data_file = "yggdata.dat"
+        self.stored_data_file = "yggdata.json"
         self.conf_path = os.path.join(ConnectorShowBase.connector_conf_dir, self.connector_name)
         if not os.path.isfile(self.conf_path):
             with open(self.conf_path, "w") as f:
                 f.write(f"active = FALSE\n")
                 f.write(f"pass_key = yourpasskey\n")
-                f.write(f"trusted_sources_rss_url = PutHereURLForEraiRSSFeed\n")
-                f.write(f"trusted_sources_url = putherethesearchpageforyggtorrent")
-                f.write(f"trusted_sources_url_batch = urlbatches")
-        if not os.path.isfile(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file)):
+                f.write(f"trusted_sources_rss_anime = PutHereURLForEraiRSSFeed\n")
+                f.write(f"trusted_sources_rss_show = PutHereURLForEraiRSSFeed\n")
+                f.write(f"trusted_sources_episode_anime = putherethesearchpageforyggtorrent\n")
+                f.write(f"trusted_sources_episode_show = putherethesearchpageforyggtorrent\n")
+                f.write(f'trusted_sources_batch_anime = anime_batch_urls\n')
+                f.write(f'trusted_sources_batch_show = anime_batch_urls\n')
+        self.stored_data_path = os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file)
+        if not (os.path.isfile(self.stored_data_path) and check_json(self.stored_data_path)):
             with open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w") as f:
                 f.write('{"rss": {},'
                         ' "web": {} }')
@@ -826,10 +835,14 @@ class YggConnector(ConnectorShowBase):
             self.stored_data = json.load(f)
         self.conf = self.parse_conf(self.conf_path)
         self.pass_key = self.conf["pass_key"][0]
-        self.trusted_sources_rss_url = self.conf["trusted_sources_rss_url"]
-        self.trusted_sources_url = self.conf["trusted_sources_url"]
-        self.trusted_sources_url_batch = self.conf["trusted_sources_url_batch"]
+        self.trusted_sources_rss_anime = self.conf["trusted_sources_rss_anime"]
+        self.trusted_sources_rss_show = self.conf["trusted_sources_rss_show"]
+        self.trusted_sources_episode_anime = self.conf["trusted_sources_episode_anime"]
+        self.trusted_sources_episode_show = self.conf["trusted_sources_episode_show"]
+        self.trusted_sources_batch_anime = self.conf["trusted_sources_batch_anime"]
+        self.trusted_sources_batch_show = self.conf["trusted_sources_batch_show"]
         self.id = id
+
         self.active = self.conf["active"]
 
     def extract_feed_info(self, url: str):
@@ -852,7 +865,7 @@ class YggConnector(ConnectorShowBase):
                         rss_feed[str(episode.id)][episode.season] = {}
                     if rss_feed[str(episode.id)][episode.season].get(episode.ep, None) is None:
                         rss_feed[str(episode.id)][episode.season][episode.ep] = []
-                    rss_feed[str(episode.id)][episode.season][episode.ep].append({"original_name": entry.title,
+                    rss_feed[str(episode.id)][episode.season][episode.ep].append({"torrent_title": entry.title,
                                                                                   "link": link,
                                                                                   "seeders": seeders,
                                                                                   "size": size})
@@ -875,7 +888,7 @@ class YggConnector(ConnectorShowBase):
             n_url = url_base.replace(f"page={n_item}", f"page={n_item + 50}")
             return n_url
 
-    def parse_page(self, url) -> tuple[dict | None, int | None] :
+    def parse_page(self, url) -> tuple[dict | None, int | None]:
         def extract_text_from_tr(html):
             matching_trs = html.find_all('tr')
             results = []
@@ -921,19 +934,6 @@ class YggConnector(ConnectorShowBase):
             return self.stored_data[cat][str(self.id)][s][e]
         return None
 
-    def find_from_data_ep(self, season_number: int, episode_number: int) -> list | None:
-        s = str(season_number).zfill(2)
-        e = str(episode_number).zfill(2)
-        for cat in self.stored_data:
-            if self.stored_data[cat].get(str(self.id), None) is None:
-                continue
-            if self.stored_data[cat][str(self.id)].get(s, None) is None:
-                continue
-            if self.stored_data[cat][str(self.id)][s].get(e, None) is None:
-                continue
-            return self.stored_data[cat][str(self.id)][s][e]
-        return None
-
     def find_from_data_batch(self, season_number: int) -> list | None:
         s = str(season_number).zfill(2)
         for cat in self.stored_data:
@@ -948,26 +948,39 @@ class YggConnector(ConnectorShowBase):
             return self.stored_data[cat][str(self.id)][s]["batch"]
         return None
 
-    def scrap_ep(self):
+    def get_results(self, url:str, title:str):
+        results = {}
+        title = title.replace(" ", "+")
+        url = url.replace("toreplace", title)
+        item, n_tot = self.parse_page(url)
+        if item is None:
+            return None
+        results = {**results, **item}
+        time.sleep(1)
+        url = self.get_next_page_url(url, n_tot)
+        while url is not None:
+            item, temp = self.parse_page(url)
+            if item is not None:
+                results = {**results, **item}
+            time.sleep(1)
+            url = self.get_next_page_url(url, n_tot)
+        return results
+    def scrap_ep(self, anime=False, show=False):
+        if not (anime or show):
+            raise ValueError("You should choose anime or show in function parameter")
         results = {}
         feed = {}
+        trusted_source = None
+        if anime:
+            trusted_source = self.trusted_sources_episode_anime
+        elif show:
+            trusted_source = self.trusted_sources_episode_show
         for titles in self.alt_titles:
-            for url in self.trusted_sources_url:
-                title = titles.replace(" ", "+")
-                url = url.replace("toreplace", title)
-                item, n_tot = self.parse_page(url)
-                if item is None:
+            for url in trusted_source:
+                new_results = self.get_results(url, titles)
+                if new_results is None:
                     continue
-                results = {**results, **item}
-                time.sleep(1)
-
-                url = self.get_next_page_url(url, n_tot)
-                while url is not None:
-                    item, temp = self.parse_page(url)
-                    if item is not None:
-                        results = {**results, **item}
-                    time.sleep(1)
-                    url = self.get_next_page_url(url, n_tot)
+                results = {**results, **new_results}
         for torrent in results:
             orignal_name = torrent
             sort_name = torrent
@@ -984,7 +997,7 @@ class YggConnector(ConnectorShowBase):
                 feed[id][ep.season] = {"batch": []}
             if feed[id][ep.season].get(ep.ep, None) is None:
                 feed[id][ep.season][ep.ep] = []
-            feed[id][ep.season][ep.ep].append({"original_name": orignal_name,
+            feed[id][ep.season][ep.ep].append({"torrent_title": orignal_name,
                                                "link": f"https://www3.yggtorrent.do/rss/download?id={results[torrent]['id']}&passkey={self.pass_key}",
                                                "seeders": results[torrent]["seeders"]})
         self.stored_data["web"] = {**self.stored_data["web"], **feed}
@@ -992,28 +1005,23 @@ class YggConnector(ConnectorShowBase):
                   open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
         return feed
 
-    def scrap_batch(self):
+    def scrap_batch(self, anime=False, show=False):
+        if not (anime or show):
+            raise ValueError("You should choose anime or show in function parameter")
         results = {}
         feed = {}
+        trusted_source = None
+        if anime:
+            trusted_source = self.trusted_sources_batch_anime
+        elif show:
+            trusted_source = self.trusted_sources_batch_show
         for titles in self.alt_titles:
-            for url in self.trusted_sources_url_batch:
-                title = titles.replace(" ", "+")
-                url = url.replace("toreplace", title)
-                item, n_tot = self.parse_page(url)
-                if item is None:
-                    continue
-                results = {**results, **item}
-                time.sleep(1)
-
-                url = self.get_next_page_url(url, n_tot)
-                while url is not None:
-                    item, temp = self.parse_page(url)
-                    if item is not None:
-                        results = {**results, **item}
-                    time.sleep(1)
-                    url = self.get_next_page_url(url, n_tot)
+            for url in trusted_source:
+                new_results = self.get_results(url, titles)
+                if new_results is not None:
+                    results = {**results, **new_results}
         for torrent in results:
-            orignal_name = torrent
+            original_name = torrent
             sort_name = torrent
             season = None
 
@@ -1029,7 +1037,7 @@ class YggConnector(ConnectorShowBase):
                 feed[id] = {}
             if feed[id].get(ep.season, None) is None:
                 feed[id][ep.season] = {"batch": []}
-            feed[id][ep.season]["batch"].append({"original_name": orignal_name,
+            feed[id][ep.season]["batch"].append({"torrent_title": original_name,
                                                  "link": f"https://www3.yggtorrent.do/rss/download?id={results[torrent]['id']}&passkey={self.pass_key}",
                                                  "seed": results[torrent]['seeders']})
         self.stored_data["web"] = {**self.stored_data["web"], **feed}
@@ -1037,50 +1045,53 @@ class YggConnector(ConnectorShowBase):
                   open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
         return feed
 
-    def find_ep(self, season_number: int, episode_number: int):
-        print("searching in database...")
-        db_results = self.find_from_data_ep(season_number, episode_number)
+    def find_ep(self, season_number: int, episode_number: int, anime=False, show=False):
+        if not (anime or show):
+            raise ValueError("You should choose anime or show in function parameter")
+        db_results, choice, trusted_source = self.find_from_data_ep(season_number, episode_number), None, None
         if db_results is not None:
             return db_results[0]
-        print(f"searching Yggtorrent rss for {self.alt_titles[0]}")
-        choice = None
-        for trusted in self.trusted_sources_rss_url:
+        if anime:
+            trusted_source = self.trusted_sources_rss_anime
+        elif show:
+            trusted_source = self.trusted_sources_rss_show
+        for trusted in trusted_source:
             feed = self.extract_feed_info(trusted)
             time.sleep(1)
-            if feed.get(str(self.id), None) is None:
-                continue
-            if feed[str(self.id)].get(str(season_number).zfill(2), None) is None:
-                continue
-            if feed[str(self.id)][str(season_number).zfill(2)].get(str(episode_number).zfill(2), None) is None:
+            if self.dict_have_ep(feed, self.id, season_number, episode_number) is None:
                 continue
             else:
                 for ep in feed[str(self.id)][str(season_number).zfill(2)].get(str(episode_number).zfill(2), None):
                     if int(ep["seeders"]) > 0:
                         choice = ep
         if choice is None:
-            print(f"episode not found in Yggtorrent rss")
-            print(f"scraping Yggtorrent engine... (this operation can few seconds)")
             try:
-                for ep in self.scrap_ep()[str(self.id)][str(season_number).zfill(2)][str(episode_number).zfill(2)]:
+                if self.id in YggConnector.id_parsed_ep:
+                    results = self.stored_data["web"]
+                else:
+                    print(f"scraping Yggtorrent batches engine... (this operation can take last)")
+                    results = self.scrap_ep(anime, show)
+                    YggConnector.id_parsed_ep.append(self.id)
+                for ep in results[str(self.id)][str(season_number).zfill(2)][str(episode_number).zfill(2)]:
                     if int(ep['seeders']) == 0:
                         continue
-                    if ep != None:
+                    elif ep is not None:
                         choice = ep
             except KeyError:
-                choice = None
+                return None
 
         return choice
 
-    def find_batch(self, season_number: int):
-        print("searching in database...")
+    def find_batch(self, season_number: int, anime=False, show=False):
+        if not (anime or show):
+            raise ValueError("You should choose anime or show in function parameter")
         db_results = self.find_from_data_batch(season_number)
         if db_results is not None:
             return db_results[0]
         choice = None
         if choice is None:
-            print(f"scraping Yggtorrent engine... (this operation can take last)")
             try:
-                for batch in self.scrap_batch()[str(self.id)][str(season_number).zfill(2)]["batch"]:
+                for batch in self.scrap_batch(anime, show)[str(self.id)][str(season_number).zfill(2)]["batch"]:
                     if int(batch["seed"]) == 0:
                         continue
                     if batch != None:
@@ -1128,11 +1139,12 @@ class NyaaConnector(ConnectorShowBase):
             if 'title' in entry and "link" in entry:
                 if os.path.splitext(entry.title)[1] == "":
                     filename = f"{entry.title}.mkv"
-                    seeders = entry["nyaa_seeders"]
-                    size = entry["nyaa_size"]
+
                 else:
                     filename = entry.title
                 try:
+                    seeders = entry["nyaa_seeders"]
+                    size = entry["nyaa_size"]
                     episode = SorterShows(filename, file_reachable=False, is_anime=True)
                     if rss_feed.get(str(episode.id), None) is None:
                         rss_feed[str(episode.id)] = {}
@@ -1140,7 +1152,7 @@ class NyaaConnector(ConnectorShowBase):
                         rss_feed[str(episode.id)][episode.season] = {}
                     if rss_feed[str(episode.id)][episode.season].get(episode.ep, None) is None:
                         rss_feed[str(episode.id)][episode.season][episode.ep] = []
-                    rss_feed[str(episode.id)][episode.season][episode.ep].append({"original_name": entry.title,
+                    rss_feed[str(episode.id)][episode.season][episode.ep].append({"torrent_title": entry.title,
                                                                                   "link": entry.link,
                                                                                   "seeders": seeders,
                                                                                   "size": size})
@@ -1149,7 +1161,9 @@ class NyaaConnector(ConnectorShowBase):
 
         return rss_feed
 
-    def find_ep(self, season_number: int, episode_number: int) -> dict | None:
+    def find_ep(self, season_number: int, episode_number: int, anime=False, show=False) -> dict | None:
+        if show and not anime:
+            return None
         for trusted in self.trusted_sources_rss_url:
             url = self.make_url(trusted, *self.words)
             feed = self.extract_feed_info(url)
@@ -1233,7 +1247,8 @@ class DataBase(Server):
             DataBase.movies = ls.copy()
             json.dump(DataBase.movies, open(os.path.join(VAR_DIR, MOVIES_LIB), "w", encoding="utf-8"), indent=5)
 
-    def var(self, anime=False, shows=False, movie=False) -> tuple[dict | None, Anime | Show | Movie | None, list | None, str | None]:
+    def var(self, anime=False, shows=False, movie=False) -> tuple[
+        dict | None, Anime | Show | Movie | None, list | None, str | None]:
         self.check_database()
         dic = None
         r = None
@@ -1324,15 +1339,17 @@ class DataBase(Server):
             if not delete:
                 if DataBase.animes.get(identifier, None) is None:
                     DataBase.animes[identifier] = {"title": info["name"],
-                                           "path": value,
-                                           "seasons": {}}
+                                                   "path": value,
+                                                   "seasons": {}}
                 for season in info["seasons"]:
-                    path = os.path.join(DataBase.animes[identifier]['path'], f"Season {str(season['season_number']).zfill(2)}")
+                    path = os.path.join(DataBase.animes[identifier]['path'],
+                                        f"Season {str(season['season_number']).zfill(2)}")
                     os.makedirs(path, exist_ok=True)
                     if DataBase.animes[identifier]["seasons"].get(str(season["season_number"]).zfill(2), None) is None:
-                        DataBase.animes[identifier]["seasons"][str(season["season_number"]).zfill(2)] = {"season_info": season,
-                                                                                                 'path': path,
-                                                                                                 'current_episode': {}}
+                        DataBase.animes[identifier]["seasons"][str(season["season_number"]).zfill(2)] = {
+                            "season_info": season,
+                            'path': path,
+                            'current_episode': {}}
             else:
                 DataBase.animes.pop(identifier)
             json.dump(DataBase.animes, open(os.path.join(VAR_DIR, lib), "w", encoding="utf-8"), indent=5)
@@ -1348,15 +1365,17 @@ class DataBase(Server):
             if not delete:
                 if DataBase.shows.get(identifier, None) is None:
                     DataBase.shows[identifier] = {"title": info["name"],
-                                          "path": value,
-                                          "seasons": {}}
+                                                  "path": value,
+                                                  "seasons": {}}
                 for season in info["seasons"]:
-                    path = os.path.join(DataBase.shows[identifier]['path'], f"Season {str(season['season_number']).zfill(2)}")
+                    path = os.path.join(DataBase.shows[identifier]['path'],
+                                        f"Season {str(season['season_number']).zfill(2)}")
                     os.makedirs(path, exist_ok=True)
                     if DataBase.shows[identifier]["seasons"].get(str(season["season_number"]).zfill(2), None) is None:
-                        DataBase.shows[identifier]["seasons"][str(season["season_number"]).zfill(2)] = {"season_info": season,
-                                                                                                'path': path,
-                                                                                                'current_episode': {}}
+                        DataBase.shows[identifier]["seasons"][str(season["season_number"]).zfill(2)] = {
+                            "season_info": season,
+                            'path': path,
+                            'current_episode': {}}
             else:
                 DataBase.shows.pop(identifier)
             json.dump(DataBase.shows, open(os.path.join(VAR_DIR, lib), "w", encoding="utf-8"), indent=5)
@@ -1372,8 +1391,8 @@ class DataBase(Server):
             if not delete:
                 if DataBase.movies.get(identifier, None) is None:
                     DataBase.movies[identifier] = {"title": info["title"],
-                                           "path": value,
-                                           "file_info": {}}
+                                                   "path": value,
+                                                   "file_info": {}}
             else:
                 DataBase.shows.pop(identifier)
             json.dump(DataBase.movies, open(os.path.join(VAR_DIR, lib), "w", encoding="utf-8"), indent=5)
@@ -1811,9 +1830,12 @@ class DataBase(Server):
                         if missing_episodes_animes[animes].get(seasons, None) is None:
                             missing_episodes_animes[animes][seasons] = []
                         missing_episodes_animes[animes][seasons].append(str(i).zfill(2))
-                if len(missing_episodes_animes[animes][seasons]) == 1:
-                    if missing_episodes_animes[animes][seasons][0] == "00":
-                        missing_episodes_animes[animes][seasons] = []
+                try:
+                    if len(missing_episodes_animes[animes][seasons]) == 1:
+                        if missing_episodes_animes[animes][seasons][0] == "00":
+                            missing_episodes_animes[animes][seasons] = []
+                except KeyError:
+                    pass
         missing_episodes_shows = {}
         for shows in (self.shows):
             for seasons in self.shows[shows]["seasons"]:
@@ -1829,54 +1851,96 @@ class DataBase(Server):
                         missing_episodes_shows[shows][seasons] = []
         return {"anime": missing_episodes_animes, "show": missing_episodes_shows}
 
-    def search_episode_source(self, anime_id: int, season_number: int, episode_number: int) -> str | None:
-        anime = self.get_tmdb_info_by_id(anime_id, show=True, movie=False)
-        seasons = anime["seasons"]
+    def search_episode_source(self, anime_id: int, season_number: int, episode_number: int, anime=False, show=False) -> str | None:
+        if not (anime or show):
+            raise ValueError("You should choose anime or show in function parameter")
+        show_info = self.get_tmdb_info_by_id(anime_id, show=True, movie=False)
+        seasons = show_info["seasons"]
         season = [s for s in seasons if s["season_number"] == season_number]
-        if season == []:
+        if not season:
             raise ValueError(f"The season {season_number} does not exist for show {anime_id}")
         else:
             season = season[0]
         if season["episode_count"] < episode_number:
             raise ValueError(f"The episode {episode_number} does not exist for show {anime_id} season {season_number}")
-        if Server.feed_storage.get(str(anime_id), None) is not None:
-            if Server.feed_storage.get(str(anime_id)).get(str(season_number).zfill(2), None) is None:
-                pass
-            elif Server.feed_storage.get(str(anime_id)).get(str(season_number).zfill(2)).get(
-                    str(episode_number).zfill(2), None) is None:
-                pass
-            else:
-                return Server.feed_storage.get(str(anime_id)).get(str(season_number).zfill(2)).get(
-                    str(episode_number).zfill(2))["link"]
+        if self.dict_have_ep(Server.feed_storage, anime_id, season_number, episode_number) is None:
+            pass
+        else:
+            return Server.feed_storage.get(str(anime_id)).get(str(season_number).zfill(2)).get(
+                str(episode_number).zfill(2))
         for connector in ConnectorShowBase.__subclasses__():
             con = connector(anime_id)
             if not isinstance(con, ConnectorShowBase):
                 raise Exception(f"Malformed connector {connector}")
             else:
                 if con.active:
-                    result = con.find_ep(season_number, episode_number)
+                    result = con.find_ep(season_number, episode_number, anime, show)
                     if result is not None:
                         return result
         return None
 
-    def search_season_source(self, anime_id: int, season_number: int) -> str | None:
-        anime = self.get_tmdb_info_by_id(anime_id, show=True, movie=False)
+    def search_season_source(self, show_id: int, season_number: int, anime=False, show=False) -> str | None:
+        if not (anime or show):
+            raise ValueError("You should choose anime or show in function parameter")
+        anime = self.get_tmdb_info_by_id(show_id, show=True, movie=False)
         seasons = anime["seasons"]
         season = [s for s in seasons if s["season_number"] == season_number]
         if season == []:
-            raise ValueError(f"The season {season_number} does not exist for show {anime_id}")
+            raise ValueError(f"The season {season_number} does not exist for show {show_id}")
         else:
             season = season[0]
         for connector in ConnectorShowBase.__subclasses__():
-            con = connector(anime_id)
+            con = connector(show_id)
             if not isinstance(con, ConnectorShowBase):
                 raise Exception(f"Malformed connector {connector}")
             else:
                 if con.active and hasattr(connector, "find_batch"):
-                    result = con.find_batch(season_number)
+                    result = con.find_batch(season_number, anime, show)
                     if result is not None:
                         return result
         return None
+
+    def dl_torrent(self, url: str, name: str, show=False, anime=False, movie=False):
+        target_directory = None
+        if anime:
+            target_directory = os.path.join(Server.conf['torrent_dir'], "anime")
+        elif show:
+            target_directory = os.path.join(Server.conf['torrent_dir'], "show")
+        elif movie:
+            target_directory = os.path.join(Server.conf['torrent_dir'], "movie")
+        else:
+            raise ValueError("You should choose show, anime or movie in function parameter")
+        torrent_content = requests.request('GET', url).content
+        if os.path.splitext(name)[1] != ".torrent":
+            name = name + ".torrent"
+        with open(os.path.join(target_directory, forbidden_car(name)), "wb") as f:
+            f.write(torrent_content)
+
+
+    def fetch_missing_ep(self):
+        list_missing = self.list_missing_episodes()
+        for target in list_missing:
+            anime = target == "anime"
+            show_status = not anime
+            for show in list_missing[target]:
+                info = self.get_tmdb_info_by_id(int(show), show=True)
+                if info is None:
+                    continue
+                for season in list_missing[target][show]:
+                    if info["last_episode_to_air"] is not None:
+                        if info["last_episode_to_air"]["season_number"] != int(season) or info["last_episode_to_air"][
+                            "episode_number"] == info["seasons"][int(season) - 1]["episode_count"]:
+                            batch = self.search_season_source(int(show), int(season), anime=anime, show=show_status)
+                            if batch is not None:
+                                print(f"Found batch for Season {season} of {info['name']}")
+                                self.dl_torrent(batch["link"], batch["torrent_title"], anime, show_status, movie=False)
+                                continue
+                    for ep in list_missing[target][show][season]:
+                        episode = self.search_episode_source(int(show), int(season), int(ep), anime=anime, show=show_status)
+                        if episode is None:
+                            continue
+                        print(f"Found episode {ep} Season {season} of {info['name']}")
+                        self.dl_torrent(episode["link"], episode["torrent_title"], anime, show_status, movie=False)
 
     def sort(self, anime=False, shows=False, movie=False):
         directory = None
@@ -1959,6 +2023,7 @@ class DataBase(Server):
 
 
 if __name__ == "__main__":
-    db = DataBase()
-    #print(db.search_episode_source(123249, 1, 2))
-    #print(db.search_season_source(123249, 1))
+    d = DataBase()
+    d.fetch_missing_ep()
+    pass
+
