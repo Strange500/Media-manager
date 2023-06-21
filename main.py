@@ -47,6 +47,7 @@ class deployServ():
             quit()
 
 def test():
+    from pprint import pprint
     ls_anime = ["86 Eighty-Six S01E02 CUSTOM MULTi 1080p 10bits BluRay x265 AAC -Punisher694.mkv",
                 "KonoSuba.An.Explosion.on.This.Wonderful.World.S01E11.SUBFRENCH.1080p.WEB.x264.AAC-Tsundere-Raws.mkv",
                 "Konosuba.An.Explosion.on.this.Wonderful.World.S01E11.SUBFRENCH.1080p.WEB.x264-T3KASHi.mkv",
@@ -70,6 +71,8 @@ def test():
     print("###################")
     for file in ls_show:
         print(SorterShows(file, file_reachable=False, is_anime=False))
+    db = DataBase()
+    pprint(db.list_missing_episodes())
 def main():
     server = deployServ()
     server.start()
@@ -77,3 +80,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    #test()

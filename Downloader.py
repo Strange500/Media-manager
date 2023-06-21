@@ -4,8 +4,7 @@ from Database import *
 
 
 class Feed(DataBase):
-    feed_storage: dict
-    feed_storage = json.load(open(os.path.join(VAR_DIR, FEED_STORAGE), "r", encoding="utf-8"))
+
 
     def __init__(self):
         super().__init__()
@@ -80,18 +79,21 @@ class Feed(DataBase):
                                 ep = SorterShows(ep, file_reachable=False, is_anime=True)
                             elif "show" in feed_list:
                                 ep = SorterShows(ep, file_reachable=False)
-                            if Feed.feed_storage.get(str(ep.id), None) is None:
-                                Feed.feed_storage[str(ep.id)] = {}
-                            if Feed.feed_storage[str(ep.id)].get(ep.season, None) is None:
-                                Feed.feed_storage[str(ep.id)][ep.season] = {}
-                            Feed.feed_storage[str(ep.id)][ep.season][ep.ep] = {
+                            if Server.feed_storage.get(str(ep.id), None) is None:
+                                Server.feed_storage[str(ep.id)] = {}
+                            if Server.feed_storage[str(ep.id)].get(ep.season, None) is None:
+                                Server.feed_storage[str(ep.id)][ep.season] = {}
+                            Server.feed_storage[str(ep.id)][ep.season][ep.ep] = {
                                 "torrent_title": title,
                                 "link": link,
                                 "origin_feed": feed_link
                             }
                         except AttributeError as e:
                             log(f"can't determine the show {ep}", error=True)
-                            pass
+                            continue
+                        except ValueError as e:
+                            log(e, warning=True)
+                            continue
                         if "anime" in feed_list:
                             if not self.have_ep(ep, anime=True):
                                 try:
@@ -117,7 +119,7 @@ class Feed(DataBase):
                         except requests.exceptions.ReadTimeout:
                             print("timeout")
                             pass
-                        Feed.feed_storage[str(mv.id)] = {
+                        Server.feed_storage[str(mv.id)] = {
                             "torrent_title": title,
                             "link": link,
                             "origin_feed": feed_link

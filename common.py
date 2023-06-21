@@ -7,7 +7,7 @@ import shutil
 import socket
 import time
 from typing import Dict, Union
-
+from urllib.parse import urlparse, quote
 import appdirs
 import requests
 import tmdbsimple as tmdb
@@ -477,6 +477,7 @@ def check_json(path):
     except json.decoder.JSONDecodeError:
         return False
 
+
 def get_temp():
     if platform.system() == "Linux":
         return psutil.sensors_temperatures()["k10temp"][0].current
@@ -487,11 +488,21 @@ def get_temp():
             if sensor.SensorType == u'Temperature' and sensor.name == "CPU Package":
                 return sensor.value
 
+def check_url_syntax(url):
+    parsed_url = urlparse(url)
+    return all([parsed_url.scheme, parsed_url.netloc])
+def correct_and_encode_url(url):
+    corrected_url = quote(url, safe=':/?=&')  # Encode special characters
+    return corrected_url
 class Server():
     tmdb_title: dict
     tmdb_db: dict
     conf: dict
     CPU_TEMP: int
+    feed_storage: dict
+    connectors: list
+
+    connectors = []
 
     list_file = [ANIME_LIB, QUERY_MOVIE, QUERY_SHOW, MOVIES_LIB, SHOWS_LIB, CONF_FILE, TMDB_TITLE, TMDB_DB,
                  RSS_SHOW, RSS_ANIME,
@@ -510,6 +521,9 @@ class Server():
 
     tmdb_db = json.load(open(os.path.join(VAR_DIR, TMDB_DB), "r", encoding="utf-8"))
     tmdb_title = json.load(open(os.path.join(VAR_DIR, TMDB_TITLE), "r", encoding="utf-8"))
+    feed_storage = json.load(open(os.path.join(VAR_DIR, FEED_STORAGE), "r", encoding="utf-8"))
+
+
     CPU_TEMP = get_temp()
     TASK_GGD_SCAN = 100
 
@@ -613,7 +627,7 @@ class Server():
             None
         """
         list_file = [ANIME_LIB, QUERY_MOVIE, QUERY_SHOW, MOVIES_LIB, SHOWS_LIB, CONF_FILE, TMDB_TITLE, TMDB_DB,
-                     RSS_SHOW, RSS_ANIME, RSS_MOVIE, GGD_LIB]
+                     RSS_SHOW, RSS_ANIME, RSS_MOVIE, GGD_LIB, FEED_STORAGE]
         for file in list_file:
             path = os.path.join(VAR_DIR, file)
             if os.path.isfile(path) and check_json(path):
@@ -709,7 +723,7 @@ class Server():
             raise ValueError("You have to specify either show or movie")
         if show:
             s = tmdb.TV(id)
-            info = s.info(append_to_response="seasons")
+            info = s.info(append_to_response="seasons,translations")
             t = "name"
         elif movie:
             s = tmdb.Movies(id)
@@ -722,6 +736,15 @@ class Server():
         self.update_tmdb_db(info[t], info)
         return info
 
+    def get_tmdb_info_by_id( self, id:int, show: int |None = False, movie: bool |None = False):
+        if not isinstance(id, int):
+            raise TypeError(f"id should be int not {type(id)}")
+        else:
+            for keys in Server.tmdb_db:
+                if Server.tmdb_db[keys]["id"] == id:
+                    return Server.tmdb_db[keys]
+            info = self.store_tmdb_info(id, show=show, movie=movie)
+            return info
     def get_tmdb_info(self, title: str, show=False, movie=False):
         """Retrieves the TMDB information for a given title from the TMDB database.
 
@@ -769,7 +792,7 @@ class Server():
                 return None
             return info
 
-    def find_tmdb_title(self, title: str, anime=False, shows=False, movie=False):
+    def find_tmdb_title(self, title: str, anime=False, shows=False, movie=False) -> str | False:
         """Finds the TMDB title for a given title and stores it in the TMDB database if not already present. Also using this function add all related information tmdb_db
 
         This method searches for a TMDB title based on the given title. If the TMDB title is already present in the
