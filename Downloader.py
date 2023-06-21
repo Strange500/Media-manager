@@ -51,7 +51,8 @@ class Feed(DataBase):
                 if "yggtorrent" in feed_title:
                     dicto[entry.title] = entry.enclosures[0].get("url")
                 else:
-                    dicto[entry.title] = entry.link
+                    dicto[entry.title] = {"link": entry.link,
+                                          "seeders": entry["nyaa_seeders"]}
 
         return dicto
 
@@ -70,7 +71,9 @@ class Feed(DataBase):
                 dic = self.get_ep_with_link(feed, feed_link)
                 for ep in dic:
                     title = ep
-                    link = dic[ep]
+                    link = dic[ep]["link"]
+                    seeders = dic[ep]["seeders"]
+                    print(seeders)
                     if os.path.splitext(title)[1] == '':
                         ep += ".mkv"
                     if not "movie" in feed_list:
@@ -86,13 +89,14 @@ class Feed(DataBase):
                             Server.feed_storage[str(ep.id)][ep.season][ep.ep] = {
                                 "torrent_title": title,
                                 "link": link,
-                                "origin_feed": feed_link
+                                "origin_feed": feed_link,
+                                "seeders": seeders
                             }
                         except AttributeError as e:
                             log(f"can't determine the show {ep}", error=True)
                             continue
                         except ValueError as e:
-                            log(e, warning=True)
+                            log(str(e), warning=True)
                             continue
                         if "anime" in feed_list:
                             if not self.have_ep(ep, anime=True):
@@ -159,3 +163,7 @@ class Feed(DataBase):
             self.sort_feed()
             self.dl_torrent()
             time.sleep(600)
+
+if __name__ == '__main__':
+    d = Feed()
+    d.run()

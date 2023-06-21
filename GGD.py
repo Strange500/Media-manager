@@ -31,6 +31,8 @@ class Gg_drive():
                             continue
                         except UnicodeError:
                             continue
+                        except ValueError as e:
+                            continue
                     except ValueError as e:
                         continue
                     id = str(ep_info.id)
@@ -64,4 +66,9 @@ class Gg_drive():
         try:
             self.update_dict_ep()
         except KeyboardInterrupt:
+            json.dump(Gg_drive.dict_ep, open(os.path.join(VAR_DIR, GGD_LIB), "w", encoding="utf-8"), indent=5)
             json.dump(Server.tmdb_db, open(os.path.join(VAR_DIR, TMDB_DB), "w", encoding="utf-8"), indent=5)
+
+if __name__ == '__main__':
+    d = Gg_drive()
+    d.run()
