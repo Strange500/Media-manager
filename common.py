@@ -579,7 +579,6 @@ class Server():
             if config.get("Downloader"):
                 if config["Downloader"] == "FALSE":
                     config.pop("download_dir", None)
-                    config.pop("torrent_dir", None)
                 elif config["Downloader"] == "TRUE":
                     pass
                 else:

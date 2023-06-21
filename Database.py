@@ -920,21 +920,7 @@ class YggConnector(ConnectorShowBase):
                 continue
             return self.stored_data[cat][str(self.id)][s][e]
         return None
-
-    def find_from_data_ep(self, season_number: int, episode_number: int) -> list | None:
-        s = str(season_number).zfill(2)
-        e = str(episode_number).zfill(2)
-        for cat in self.stored_data:
-            if self.stored_data[cat].get(str(self.id), None) is None:
-                continue
-            if self.stored_data[cat][str(self.id)].get(s, None) is None:
-                continue
-            if self.stored_data[cat][str(self.id)][s].get(e, None) is None:
-                continue
-            return self.stored_data[cat][str(self.id)][s][e]
-        return None
-
-    def find_from_data_batch(self, season_number: int) -> list | None:
+    def find_from_data_batch(self, season_number:int) -> list |  None:
         s = str(season_number).zfill(2)
         for cat in self.stored_data:
             if self.stored_data[cat].get(str(self.id), None) is None:
@@ -1058,13 +1044,12 @@ class YggConnector(ConnectorShowBase):
                     if int(ep["seeders"]) > 0:
                         choice = ep
         if choice is None:
-            print(f"episode not found in Yggtorrent rss")
-            print(f"scraping Yggtorrent engine... (this operation can few seconds)")
+            print(f"scraping Yggtorrent engine... (this operation can take last)")
             try:
                 for ep in self.scrap_ep()[str(self.id)][str(season_number).zfill(2)][str(episode_number).zfill(2)]:
                     if int(ep['seeders']) == 0:
                         continue
-                    if ep != None:
+                    elif ep is not None:
                         choice = ep
             except KeyError:
                 choice = None
@@ -1811,9 +1796,12 @@ class DataBase(Server):
                         if missing_episodes_animes[animes].get(seasons, None) is None:
                             missing_episodes_animes[animes][seasons] = []
                         missing_episodes_animes[animes][seasons].append(str(i).zfill(2))
-                if len(missing_episodes_animes[animes][seasons]) == 1:
-                    if missing_episodes_animes[animes][seasons][0] == "00":
-                        missing_episodes_animes[animes][seasons] = []
+                try:
+                    if len(missing_episodes_animes[animes][seasons]) == 1:
+                        if missing_episodes_animes[animes][seasons][0] == "00":
+                            missing_episodes_animes[animes][seasons] = []
+                except KeyError:
+                    pass
         missing_episodes_shows = {}
         for shows in (self.shows):
             for seasons in self.shows[shows]["seasons"]:
@@ -1877,6 +1865,24 @@ class DataBase(Server):
                     if result is not None:
                         return result
         return None
+
+    def fetch_missing_ep(self):
+        pprint(self.conf)
+        list_missing = self.list_missing_episodes()
+        pprint(list_missing)
+        input()
+        target = {**list_missing["anime"], **list_missing["show"]}
+        for anime in target:
+            for season in target[anime]:
+                for ep in target[anime][season]:
+                    info = self.search_episode_source(int(anime), int(season), int(ep))
+                    if info is None:
+                        continue
+                    torrent_content = requests.request('GET', info["link"]).content
+                    with open(os.path.join(self.conf["torrent_dir"], forbidden_car(info["original_name"])), "wb") as f:
+                        f.write(torrent_content)
+
+
 
     def sort(self, anime=False, shows=False, movie=False):
         directory = None
@@ -1960,5 +1966,7 @@ class DataBase(Server):
 
 if __name__ == "__main__":
     db = DataBase()
+    db.fetch_missing_ep()
+
     #print(db.search_episode_source(123249, 1, 2))
     #print(db.search_season_source(123249, 1))
