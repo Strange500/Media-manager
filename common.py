@@ -792,7 +792,7 @@ class Server():
                 return None
             return info
 
-    def find_tmdb_title(self, title: str, anime=False, shows=False, movie=False):
+    def find_tmdb_title(self, title: str, anime=False, shows=False, movie=False) -> str | False:
         """Finds the TMDB title for a given title and stores it in the TMDB database if not already present. Also using this function add all related information tmdb_db
 
         This method searches for a TMDB title based on the given title. If the TMDB title is already present in the
