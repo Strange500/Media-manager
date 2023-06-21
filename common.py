@@ -101,7 +101,19 @@ def compare_dictionaries(dict1, dict2):
 
     return sorted(dict1.items()) == sorted(dict2.items())
 
+def delete_unwanted_words(title:str)->str:
+    keywords = ["2nd Season", "1st Season", "3rd Season", "Cour 2", "INTEGRAL", "integrale","intégrale", "INTEGRALE"]
+    for keyword in keywords:
+        title = title.replace(keyword, "")
+    return title
 
+def split_on_season_word(title: str)->str:
+    keywords = ["Season", "season", "Saison", "saison"]
+    for keyword in keywords:
+        if keyword in title:
+            title = title.split(keyword)[0]
+            return title
+    return title
 def safe_move(src, dst, max_retries=2, retry_delay=1):
     """
     Safely moves a file from the source to the destination path.

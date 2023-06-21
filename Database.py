@@ -183,18 +183,8 @@ class SorterShows(SorterCommon):
             str: The determined title of the video.
         """
         file = self.clean_file_name
-        season_keywords = ["2nd Season", "1st Season", "3rd Season", "Cour 2"]
-        for keyword in season_keywords:
-            file = file.replace(keyword, "")
-        file = file.replace("INTEGRAL", "").replace("integrale", "").replace("intégrale", "").replace("INTEGRALE", "")
-        if "Season" in file:
-            file = file.split("Season")[0]
-        if "season" in file:
-            file = file.split("season")[0]
-        if "Saison" in file:
-            file = file.split("Saison")[0]
-        if "saison" in file:
-            file = file.split("saison")[0]
+        file = delete_unwanted_words(file)
+        file = split_on_season_word(file)
         if " - " in file:
             file = file.split(" - ")[0]
             if f"S{self.season}" in file:

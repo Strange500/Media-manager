@@ -73,7 +73,6 @@ class Feed(DataBase):
                     title = ep
                     link = dic[ep]["link"]
                     seeders = dic[ep]["seeders"]
-                    print(seeders)
                     if os.path.splitext(title)[1] == '':
                         ep += ".mkv"
                     if not "movie" in feed_list:
