@@ -1975,12 +1975,15 @@ class DataBase(Server):
                         Server.delete_query(int(show), anime=anime, show=show_status)
 
     def sort(self, anime=False, shows=False, movie=False):
-        directory = None
+        directory, list_file, sorter, arg = None, None, None, {"file_reachable": True}
         if anime:
+            sorter, arg = SorterShows, {"file_reachable": True, "is_anime": True}
             directory = self.to_sort_anime
         elif shows:
+            sorter = SorterShows
             directory = self.to_sort_show
         elif movie:
+            sorter = SorterMovie
             directory = self.to_sort_movie
         if type(directory) == str:
             list_file = list_all_files(directory)
@@ -1991,12 +1994,7 @@ class DataBase(Server):
         for file in list_file:
             if os.path.isfile(file) and is_video(file):
                 try:
-                    if shows:
-                        s = SorterShows(file, file_reachable=True)
-                    if anime:
-                        s = SorterShows(file, file_reachable=True, is_anime=True)
-                    elif movie:
-                        s = SorterMovie(file, file_reachable=True)
+                    s = sorter(file, **arg)
                     if self.add(s.title, anime, shows, movie):
                         DataBase.add_file(s, anime, shows, movie)
                     else:
