@@ -879,7 +879,7 @@ class Server():
 
     def delete_query( identifier:int, anime=False, show=False, movie=False):
         if not (anime or show or movie):
-            raise  ValueError("should choose between anime,show or movie")
+            raise ValueError("should choose between anime,show or movie")
         file, text = None, None
         if anime and str(identifier) in Server.query_anime:
             Server.query_anime.remove(str(identifier))
