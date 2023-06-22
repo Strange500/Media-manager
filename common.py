@@ -34,6 +34,7 @@ RSS_ANIME = os.path.join("rss", "rss_anime.dat")
 RSS_MOVIE = os.path.join("rss", "rss_movie.dat")
 RSS_SHOW = os.path.join("rss", "rss_show.dat")
 QUERY_SHOW = os.path.join("data", "query_show.dat")
+QUERY_ANIME = os.path.join("data", "query_anime.dat")
 QUERY_MOVIE = os.path.join("data", "guery_movie.dat")
 GGD_LIB = os.path.join("data", "ggd_lib.json")
 list_language = ["french"]
@@ -101,7 +102,19 @@ def compare_dictionaries(dict1, dict2):
 
     return sorted(dict1.items()) == sorted(dict2.items())
 
+def delete_unwanted_words(title:str)->str:
+    keywords = ["2nd Season", "1st Season", "3rd Season", "Cour 2", "INTEGRAL", "integrale","intégrale", "INTEGRALE"]
+    for keyword in keywords:
+        title = title.replace(keyword, "")
+    return title
 
+def split_on_season_word(title: str)->str:
+    keywords = ["Season", "season", "Saison", "saison"]
+    for keyword in keywords:
+        if keyword in title:
+            title = title.split(keyword)[0]
+            return title
+    return title
 def safe_move(src, dst, max_retries=2, retry_delay=1):
     """
     Safely moves a file from the source to the destination path.
@@ -506,7 +519,7 @@ class Server():
 
     list_file = [ANIME_LIB, QUERY_MOVIE, QUERY_SHOW, MOVIES_LIB, SHOWS_LIB, CONF_FILE, TMDB_TITLE, TMDB_DB,
                  RSS_SHOW, RSS_ANIME,
-                 RSS_MOVIE, GGD_LIB, FEED_STORAGE]
+                 RSS_MOVIE, GGD_LIB, FEED_STORAGE, QUERY_ANIME]
     for file in list_file:
         path = os.path.join(VAR_DIR, file)
         if os.path.isfile(path) and check_json(path):
@@ -522,7 +535,9 @@ class Server():
     tmdb_db = json.load(open(os.path.join(VAR_DIR, TMDB_DB), "r", encoding="utf-8"))
     tmdb_title = json.load(open(os.path.join(VAR_DIR, TMDB_TITLE), "r", encoding="utf-8"))
     feed_storage = json.load(open(os.path.join(VAR_DIR, FEED_STORAGE), "r", encoding="utf-8"))
-
+    query_anime = open(os.path.join(VAR_DIR, QUERY_ANIME), "r").read().split("\n")
+    query_show = open(os.path.join(VAR_DIR, QUERY_SHOW), "r").read().split("\n")
+    query_movie = open(os.path.join(VAR_DIR, QUERY_ANIME), "r").read().split("\n")
 
     CPU_TEMP = get_temp()
     TASK_GGD_SCAN = 100
@@ -625,8 +640,7 @@ class Server():
         Returns:
             None
         """
-        list_file = [ANIME_LIB, QUERY_MOVIE, QUERY_SHOW, MOVIES_LIB, SHOWS_LIB, CONF_FILE, TMDB_TITLE, TMDB_DB,
-                     RSS_SHOW, RSS_ANIME, RSS_MOVIE, GGD_LIB, FEED_STORAGE]
+        list_file = Server.list_file
         for file in list_file:
             path = os.path.join(VAR_DIR, file)
             if os.path.isfile(path) and check_json(path):
@@ -854,7 +868,7 @@ class Server():
             Server.tmdb_db.pop(title)
             return True
 
-    def dict_have_ep(self, dic: dict, identifier: int, season: int, episode: int)->None | bool:
+    def dict_have_ep(self, dic: dict, identifier: int, season: int, episode: int) -> None | bool:
         if dic.get(str(identifier), None) is None:
             return None
         if dic[str(identifier)].get(str(season).zfill(2), None) is None:
@@ -862,3 +876,20 @@ class Server():
         if dic[str(identifier)][str(season).zfill(2)].get(str(episode).zfill(2), None) is None:
             return None
         return True
+
+    def delete_query( identifier:int, anime=False, show=False, movie=False):
+        if not (anime or show or movie):
+            raise ValueError("should choose between anime,show or movie")
+        file, text = None, None
+        if anime and str(identifier) in Server.query_anime:
+            Server.query_anime.remove(str(identifier))
+            file, text = QUERY_ANIME, "\n".join(Server.query_anime)
+        elif show and str(identifier) in Server.query_show:
+            Server.query_show.remove(str(identifier))
+            file, text = QUERY_ANIME, "\n".join(Server.query_anime)
+        elif movie and str(identifier) in Server.query_movie:
+            Server.query_movie.remove(str(identifier))
+            file, text = QUERY_ANIME, "\n".join(Server.query_anime)
+        if file is not None and text is not None:
+            with open(os.path.join(VAR_DIR, file), "w") as f:
+                f.write(text)

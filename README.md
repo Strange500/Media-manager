@@ -1,6 +1,7 @@
 # Shows-Sorter
 An automated sorter (Rename/Sort/Manage Database)
 WORK IN PROGRESS
+<a href="https://www.codefactor.io/repository/github/strange500/media-manager"><img src="https://www.codefactor.io/repository/github/strange500/media-manager/badge" alt="CodeFactor" /></a>
 <hr>
 <h1> Presentation </h1>
 This server allow you to manage your Anime/Show/Movie. Here is a list of what it can do

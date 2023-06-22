@@ -3,6 +3,7 @@ import threading
 from API import *
 from Downloader import *
 from GGD import *
+from datetime import datetime
 
 
 class deployServ():
@@ -27,10 +28,16 @@ class deployServ():
                 dl = threading.Thread(target=self.dl.run)
                 dl.start()
 
+            fetch = None
             while True:
+                if datetime.now().strftime("%H") == "06" and fetch is None:
+                    fetch = threading.Thread(target=self.db.fetch_missing_ep)
+                    fetch.start()
                 if len(self.web_api.cpu_temp_list) > 120:
                     self.web_api.cpu_temp_list = []
                 self.web_api.update_cpu_temp()
+                self.db.fetch_requested_shows(anime=True)
+                self.db.fetch_requested_shows(show=True)
                 time.sleep(30)
         except KeyboardInterrupt:
 
