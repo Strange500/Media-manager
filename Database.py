@@ -748,13 +748,15 @@ class ConnectorShowBase(Server):
     connector_conf_file = "common.conf"
     os.makedirs(connector_conf_dir, exist_ok=True)
 
+
     if not os.path.isfile(os.path.join(connector_conf_dir, connector_conf_file)):
         with open(os.path.join(connector_conf_dir, connector_conf_file), "w") as f:
             ...
 
-    def __init__(self, id: int):
+    def __init__(self, id: int, movie=False):
         super().__init__()
         self.connector_name = "common"
+        self.is_movie = movie
 
         # should add config for connector
         self.non_target_title_lang = ["ru", "ar", "he", "th", "tr", "vi", "zh", "uk", "ro", "pt", "ko", "sk", "ro",
@@ -762,7 +764,11 @@ class ConnectorShowBase(Server):
         self.alt_titles = list(set(self.get_titles(id)))
 
     def get_titles(self, id: int) -> list[str] | None:
-        title = self.get_tmdb_info_by_id(id, show=True, movie=False)
+        title = self.get_tmdb_info_by_id(id, show=(not self.is_movie), movie=self.is_movie)
+        if self.is_movie:
+            text = "title"
+        else:
+            text = "name"
         if title is None:
             raise ValueError(f"No show found for id {id}")
         else:
@@ -772,8 +778,8 @@ class ConnectorShowBase(Server):
                 if title.get("translations").get("translations", None) is None:
                     raise Exception(f"cannot find all titles for the show {id}")
                 else:
-                    return [t["data"]["name"] for t in title.get("translations").get("translations") if
-                            t["data"]["name"] != "" and t["iso_639_1"] not in self.non_target_title_lang]
+                    return [t["data"][text] for t in title.get("translations").get("translations") if
+                            t["data"][text] != "" and t["iso_639_1"] not in self.non_target_title_lang]
 
     def parse_conf(self, conf_file_path: str):
         conf = {}
@@ -810,8 +816,8 @@ class YggConnector(ConnectorShowBase):
     id_parsed_ep = []
     id_parsed_batches = []
 
-    def __init__(self, id: int):
-        super().__init__(id)
+    def __init__(self, id: int, movie=False):
+        super().__init__(id, movie=movie)
         self.connector_name = "YggTorrent.conf"
         self.stored_data_file = "yggdata.json"
         self.conf_path = os.path.join(ConnectorShowBase.connector_conf_dir, self.connector_name)
@@ -821,8 +827,10 @@ class YggConnector(ConnectorShowBase):
                 f.write(f"pass_key = yourpasskey\n")
                 f.write(f"trusted_sources_rss_anime = PutHereURLForEraiRSSFeed\n")
                 f.write(f"trusted_sources_rss_show = PutHereURLForEraiRSSFeed\n")
+                f.write(f"trusted_sources_rss_movie = PutHereURLForEraiRSSFeed\n")
                 f.write(f"trusted_sources_episode_anime = putherethesearchpageforyggtorrent\n")
                 f.write(f"trusted_sources_episode_show = putherethesearchpageforyggtorrent\n")
+                f.write(f"trusted_sources_file_movie = putherethesearchpageforyggtorrent\n")
                 f.write(f'trusted_sources_batch_anime = anime_batch_urls\n')
                 f.write(f'trusted_sources_batch_show = anime_batch_urls\n')
         self.stored_data_path = os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file)
@@ -836,8 +844,10 @@ class YggConnector(ConnectorShowBase):
         self.pass_key = self.conf["pass_key"][0]
         self.trusted_sources_rss_anime = self.conf["trusted_sources_rss_anime"]
         self.trusted_sources_rss_show = self.conf["trusted_sources_rss_show"]
+        self.trusted_sources_rss_movie = self.conf["trusted_sources_rss_movie"]
         self.trusted_sources_episode_anime = self.conf["trusted_sources_episode_anime"]
         self.trusted_sources_episode_show = self.conf["trusted_sources_episode_show"]
+        self.trusted_sources_episode_movie = self.conf["trusted_sources_file_movie"]
         self.trusted_sources_batch_anime = self.conf["trusted_sources_batch_anime"]
         self.trusted_sources_batch_show = self.conf["trusted_sources_batch_show"]
         self.id = id
@@ -1043,6 +1053,36 @@ class YggConnector(ConnectorShowBase):
         json.dump(self.stored_data,
                   open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
         return feed
+
+    def scrap_movie(self):
+        results, feed, trusted_source = {}, {}, self.trusted_sources_episode_movie
+        for titles in self.alt_titles:
+            for url in trusted_source:
+                new_results = self.get_results(url, titles)
+                if new_results is not None:
+                    results = {**results, **new_results}
+        for torrent in results:
+            original_name = torrent
+            sort_name = torrent
+            season = None
+
+            if os.path.splitext(torrent)[1] == "":
+                sort_name = torrent + ".mkv"
+            try:
+                ep = SorterMovie(sort_name, file_reachable=False)
+            except ValueError as e:
+                continue
+            id = str(ep.id)
+            if feed.get(id, None) is None:
+                feed[id] = []
+            feed[id].append({"torrent_title": original_name,
+                                                 "link": f"https://www3.yggtorrent.do/rss/download?id={results[torrent]['id']}&passkey={self.pass_key}",
+                                                 "seed": results[torrent]['seeders']})
+        self.stored_data["web"] = {**self.stored_data["web"], **feed}
+        json.dump(self.stored_data,
+                  open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
+        return feed
+
 
     def find_ep(self, season_number: int, episode_number: int, anime=False, show=False):
         if not (anime or show):
@@ -1804,6 +1844,7 @@ class DataBase(Server):
         with open(os.path.join(target_directory, forbidden_car(name)), "wb") as f:
             f.write(torrent_content)
 
+
     def get_episode(self, list_ep: list, season: int, identifier: int, anime=False, show=False) -> bool:
         if not (show or anime):
             raise ValueError("You should choose between show and anime in function parameter")
@@ -1815,6 +1856,7 @@ class DataBase(Server):
             find = True
             self.dl_torrent(episode["link"], episode["torrent_title"], anime, show, movie=False)
         return find
+
 
     def get_batch(self, season: int, identifier: int, anime=False, show=False) -> bool:
         if not (show or anime):
@@ -1842,6 +1884,7 @@ class DataBase(Server):
                             if self.get_batch(int(season), int(show), anime=anime, show=show):
                                 print(f"Found batch for Season {season} of {info['name']}")
                                 continue
+
                     if self.get_episode(list_missing[target][show][season], int(season), int(show), anime=anime,
                                         show=show_status):
                         print(f"episodes found for {info['name']} season {season}")
@@ -1948,6 +1991,6 @@ class DataBase(Server):
 
 
 if __name__ == "__main__":
-    d = DataBase()
-    d.fetch_missing_ep()
+    y = YggConnector(1726, movie=True)
+    print(y.scrap_movie())
     pass
