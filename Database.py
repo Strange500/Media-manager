@@ -2014,26 +2014,18 @@ class DataBase(Server):
                     log(e, warning=True)
 
     def serve_forever(self):
+        conf_list = [(self.to_sort_anime, True, False, False),
+                     (self.to_sort_show, False, True, False),
+                     (self.to_sort_movie, False, False, True)]
         try:
             while True:
-                if type(self.to_sort_anime) == str and os.listdir(self.to_sort_anime) != []:
-                    self.sort(anime=True)
-                elif type(self.to_sort_anime) == list:
-                    for dir in self.to_sort_anime:
-                        if os.listdir(dir) != []:
-                            self.sort(anime=True)
-                if type(self.to_sort_show) == str and os.listdir(self.to_sort_show) != []:
-                    self.sort(shows=True)
-                elif type(self.to_sort_show) == list:
-                    for dir in self.to_sort_show:
-                        if os.listdir(dir) != []:
-                            self.sort(shows=True)
-                if type(self.to_sort_movie) == str and os.listdir(self.to_sort_movie) != []:
-                    self.sort(movie=True)
-                elif type(self.to_sort_movie) == list:
-                    for dir in self.to_sort_movie:
-                        if os.listdir(dir) != []:
-                            self.sort(movie=True)
+                for path, anime, show, movie in conf_list:
+                    if type(path) == str and os.listdir(path) != []:
+                        self.sort(anime=anime, shows=show, movie=movie)
+                    elif type(self.to_sort_anime) == list:
+                        for directory in self.to_sort_anime:
+                            if os.listdir(directory):
+                                self.sort(anime=anime, shows=show, movie=movie)
                 time.sleep(5)
         except KeyboardInterrupt:
             print("shutting down")
