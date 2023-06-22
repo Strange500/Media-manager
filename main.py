@@ -30,7 +30,7 @@ class deployServ():
 
             fetch = None
             while True:
-                if datetime.now().strftime("%H") == "11" and fetch is None:
+                if datetime.now().strftime("%H") == "14" and fetch is None:
                     fetch = threading.Thread(target=self.db.fetch_missing_ep)
                     fetch.start()
                 if len(self.web_api.cpu_temp_list) > 120:

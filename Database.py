@@ -1,6 +1,6 @@
 import os.path
 import subprocess
-
+from copy import deepcopy
 from bs4 import BeautifulSoup
 
 from connectors import *
@@ -1814,36 +1814,26 @@ class DataBase(Server):
             return True
 
     def list_missing_episodes(self):
-        missing_episodes_animes = {}
-        for animes in (self.animes):
-            for seasons in self.animes[animes]["seasons"]:
-                for i in range(1, self.animes[animes]["seasons"][seasons]["season_info"]["episode_count"] + 1):
-                    if self.animes[animes]["seasons"][seasons]["current_episode"].get(str(i).zfill(2), None) is None:
-                        if missing_episodes_animes.get(animes, None) is None:
-                            missing_episodes_animes[animes] = {}
-                        if missing_episodes_animes[animes].get(seasons, None) is None:
-                            missing_episodes_animes[animes][seasons] = []
-                        missing_episodes_animes[animes][seasons].append(str(i).zfill(2))
-                try:
-                    if len(missing_episodes_animes[animes][seasons]) == 1:
-                        if missing_episodes_animes[animes][seasons][0] == "00":
-                            missing_episodes_animes[animes][seasons] = []
-                except KeyError:
-                    pass
-        missing_episodes_shows = {}
-        for shows in (self.shows):
-            for seasons in self.shows[shows]["seasons"]:
-                for i in range(1, self.shows[shows]["seasons"][seasons]["season_info"]["episode_count"] + 1):
-                    if self.shows[shows]["seasons"][seasons]["current_episode"].get(str(i).zfill(2), None) is None:
-                        if missing_episodes_shows.get(shows, None) is None:
-                            missing_episodes_shows[shows] = {}
-                        if missing_episodes_shows[shows].get(seasons, None) is None:
-                            missing_episodes_shows[shows][seasons] = []
-                        missing_episodes_shows[shows][seasons].append(str(i).zfill(2))
-                if len(missing_episodes_shows[shows][seasons]) == 1:
-                    if missing_episodes_shows[shows][seasons][0] == "00":
-                        missing_episodes_shows[shows][seasons] = []
-        return {"anime": missing_episodes_animes, "show": missing_episodes_shows}
+        missing, temp = {"anime": {}, "show": {}}, {}
+        for name, lib in [("anime", self.animes), ("show", self.shows)]:
+            for shows in lib:
+                for seasons in lib[shows]["seasons"]:
+                    for i in range(1, lib[shows]["seasons"][seasons]["season_info"]["episode_count"] + 1):
+                        if lib[shows]["seasons"][seasons]["current_episode"].get(str(i).zfill(2), None) is None:
+                            if temp.get(shows, None) is None:
+                                temp[shows] = {}
+                            if temp[shows].get(seasons, None) is None:
+                                temp[shows][seasons] = []
+                            temp[shows][seasons].append(str(i).zfill(2))
+                    try:
+                        if len(temp[shows][seasons]) == 1:
+                            if temp[shows][seasons][0] == "00":
+                                temp[shows][seasons] = []
+                    except KeyError:
+                        pass
+            missing[name] = deepcopy(temp)
+            temp.clear()
+        return missing
 
     def search_episode_source(self, anime_id: int, season_number: int, episode_number: int, anime=False,
                               show=False) -> dict | None:
@@ -2066,5 +2056,5 @@ class DataBase(Server):
 
 if __name__ == "__main__":
     d = DataBase()
-    d.fetch_requested_shows(anime=True)
+    d.fetch_missing_ep()
     pass
