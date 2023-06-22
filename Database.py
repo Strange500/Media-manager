@@ -1430,6 +1430,8 @@ class DataBase(Server):
                                                                       }
         identifier = str(info["id"])
         if anime:
+
+        if anime:
             if DataBase.animes.get(identifier, None) is not None:
                 return True
             else:
@@ -1757,6 +1759,10 @@ class DataBase(Server):
         path = dic[id][season_number][episode_number]["path"]
         dic[id][season_number].pop(episode_number)
         json.dump(dic, open(os.path.join(VAR_DIR, file), "w", encoding="utf-8"), indent=5)
+        if anime:
+            DataBase.animes = deepcopy(dic)
+        elif show:
+            DataBase.shows = deepcopy(dic)
         return path
 
     def delete_season(id: int, season_number: int, show: bool = False, anime: bool = False):
