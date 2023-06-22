@@ -726,7 +726,7 @@ class Server():
             t = "name"
         elif movie:
             s = tmdb.Movies(id)
-            info = s.info()
+            info = s.info(append_to_response="translations")
             t = "title"
         else:
             raise ValueError("You have to specify either show or movie")
