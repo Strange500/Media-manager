@@ -805,6 +805,7 @@ class ConnectorShowBase(Server):
                 choice = ep
         return choice
 
+
 class YggConnector(ConnectorShowBase):
     id_parsed_ep = []
     id_parsed_batches = []
@@ -946,7 +947,7 @@ class YggConnector(ConnectorShowBase):
             return self.stored_data[cat][str(self.id)][s]["batch"]
         return None
 
-    def get_results(self, url:str, title:str):
+    def get_results(self, url: str, title: str):
         results = {}
         title = title.replace(" ", "+")
         url = url.replace("toreplace", title)
@@ -963,6 +964,7 @@ class YggConnector(ConnectorShowBase):
             time.sleep(1)
             url = self.get_next_page_url(url, n_tot)
         return results
+
     def scrap_ep(self, anime=False, show=False):
         if not (anime or show):
             raise ValueError("You should choose anime or show in function parameter")
@@ -1028,7 +1030,6 @@ class YggConnector(ConnectorShowBase):
             try:
                 ep = SorterShows(sort_name, file_reachable=False)
             except ValueError as e:
-                print(e)
                 continue
             id = str(ep.id)
             if feed.get(id, None) is None:
@@ -1068,7 +1069,8 @@ class YggConnector(ConnectorShowBase):
                     print(f"scraping Yggtorrent batches engine... (this operation can take last)")
                     results = self.scrap_ep(anime, show)
                     YggConnector.id_parsed_ep.append(self.id)
-                choice = self.extract_better_version(results[str(self.id)][str(season_number).zfill(2)][str(episode_number).zfill(2)])
+                choice = self.extract_better_version(
+                    results[str(self.id)][str(season_number).zfill(2)][str(episode_number).zfill(2)])
             except KeyError:
                 return None
 
@@ -1843,7 +1845,8 @@ class DataBase(Server):
                         missing_episodes_shows[shows][seasons] = []
         return {"anime": missing_episodes_animes, "show": missing_episodes_shows}
 
-    def search_episode_source(self, anime_id: int, season_number: int, episode_number: int, anime=False, show=False) -> str | None:
+    def search_episode_source(self, anime_id: int, season_number: int, episode_number: int, anime=False,
+                              show=False) -> dict | None:
         if not (anime or show):
             raise ValueError("You should choose anime or show in function parameter")
         show_info = self.get_tmdb_info_by_id(anime_id, show=True, movie=False)
@@ -1871,7 +1874,7 @@ class DataBase(Server):
                         return result
         return None
 
-    def search_season_source(self, show_id: int, season_number: int, anime=False, show=False) -> str | None:
+    def search_season_source(self, show_id: int, season_number: int, anime=False, show=False) -> dict | None:
         if not (anime or show):
             raise ValueError("You should choose anime or show in function parameter")
         anime = self.get_tmdb_info_by_id(show_id, show=True, movie=False)
@@ -1908,7 +1911,6 @@ class DataBase(Server):
         with open(os.path.join(target_directory, forbidden_car(name)), "wb") as f:
             f.write(torrent_content)
 
-
     def fetch_missing_ep(self):
         list_missing = self.list_missing_episodes()
         for target in list_missing:
@@ -1928,11 +1930,52 @@ class DataBase(Server):
                                 self.dl_torrent(batch["link"], batch["torrent_title"], anime, show_status, movie=False)
                                 continue
                     for ep in list_missing[target][show][season]:
-                        episode = self.search_episode_source(int(show), int(season), int(ep), anime=anime, show=show_status)
+                        episode = self.search_episode_source(int(show), int(season), int(ep), anime=anime,
+                                                             show=show_status)
                         if episode is None:
                             continue
                         print(f"Found episode {ep} Season {season} of {info['name']}")
                         self.dl_torrent(episode["link"], episode["torrent_title"], anime, show_status, movie=False)
+
+    def fetch_requested_shows(self, show=False, anime=False):
+        if not (show or anime):
+            raise ValueError("You should choose between show and anime in function parameter")
+        file = None
+        show_status = show
+        if show:
+            file = QUERY_SHOW
+        if anime:
+            file = QUERY_ANIME
+        list_missing = open(os.path.join(VAR_DIR, file), "r").read().split("\n")
+        if list_missing == ['']:
+            return
+        for show in list_missing:
+            info = self.get_tmdb_info_by_id(int(show), show=True)
+            if info is None:
+                continue
+            if DataBase.find(info["name"], anime=True) or DataBase.find(info["name"], shows=True):
+                continue
+            for season in info["seasons"]:
+                season_number = season["season_number"]
+                if info["last_episode_to_air"] is not None:
+                    if info["last_episode_to_air"]["season_number"] != int(season_number) or \
+                            info["last_episode_to_air"][
+                                "episode_number"] == info["seasons"][int(season_number) - 1]["episode_count"]:
+                        batch = self.search_season_source(int(show), int(season_number), anime=anime, show=show_status)
+                        if batch is not None:
+                            print(f"Found batch for Season {season} of {info['name']}")
+                            self.dl_torrent(batch["link"], batch["torrent_title"], anime, show_status, movie=False)
+                            list_missing.pop(list_missing.index(show))
+                            continue
+                for ep in range(info["seasons"][season_number]["episode_count"]+1):
+                    episode = self.search_episode_source(int(show), int(season_number), int(ep), anime=anime, show=show_status)
+                    if episode is None:
+                        continue
+                    print(f"Found episode {ep} Season {season_number} of {info['name']}")
+                    self.dl_torrent(episode["link"], episode["torrent_title"], anime, show_status, movie=False)
+                    list_missing.pop(list_missing.index(show))
+        with open(os.path.join(VAR_DIR, file), "w") as f:
+            f.write("\n".join(list_missing))
 
     def sort(self, anime=False, shows=False, movie=False):
         directory = None
@@ -2016,6 +2059,5 @@ class DataBase(Server):
 
 if __name__ == "__main__":
     d = DataBase()
-    d.fetch_missing_ep()
+    d.fetch_requested_shows(anime=True)
     pass
-

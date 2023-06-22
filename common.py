@@ -34,6 +34,7 @@ RSS_ANIME = os.path.join("rss", "rss_anime.dat")
 RSS_MOVIE = os.path.join("rss", "rss_movie.dat")
 RSS_SHOW = os.path.join("rss", "rss_show.dat")
 QUERY_SHOW = os.path.join("data", "query_show.dat")
+QUERY_ANIME = os.path.join("data", "query_anime.dat")
 QUERY_MOVIE = os.path.join("data", "guery_movie.dat")
 GGD_LIB = os.path.join("data", "ggd_lib.json")
 list_language = ["french"]
@@ -518,7 +519,7 @@ class Server():
 
     list_file = [ANIME_LIB, QUERY_MOVIE, QUERY_SHOW, MOVIES_LIB, SHOWS_LIB, CONF_FILE, TMDB_TITLE, TMDB_DB,
                  RSS_SHOW, RSS_ANIME,
-                 RSS_MOVIE, GGD_LIB, FEED_STORAGE]
+                 RSS_MOVIE, GGD_LIB, FEED_STORAGE, QUERY_ANIME]
     for file in list_file:
         path = os.path.join(VAR_DIR, file)
         if os.path.isfile(path) and check_json(path):
@@ -637,8 +638,7 @@ class Server():
         Returns:
             None
         """
-        list_file = [ANIME_LIB, QUERY_MOVIE, QUERY_SHOW, MOVIES_LIB, SHOWS_LIB, CONF_FILE, TMDB_TITLE, TMDB_DB,
-                     RSS_SHOW, RSS_ANIME, RSS_MOVIE, GGD_LIB, FEED_STORAGE]
+        list_file = Server.list_file
         for file in list_file:
             path = os.path.join(VAR_DIR, file)
             if os.path.isfile(path) and check_json(path):
