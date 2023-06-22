@@ -535,7 +535,9 @@ class Server():
     tmdb_db = json.load(open(os.path.join(VAR_DIR, TMDB_DB), "r", encoding="utf-8"))
     tmdb_title = json.load(open(os.path.join(VAR_DIR, TMDB_TITLE), "r", encoding="utf-8"))
     feed_storage = json.load(open(os.path.join(VAR_DIR, FEED_STORAGE), "r", encoding="utf-8"))
-
+    query_anime = open(os.path.join(VAR_DIR, QUERY_ANIME), "r").read().split("\n")
+    query_show = open(os.path.join(VAR_DIR, QUERY_SHOW), "r").read().split("\n")
+    query_movie = open(os.path.join(VAR_DIR, QUERY_ANIME), "r").read().split("\n")
 
     CPU_TEMP = get_temp()
     TASK_GGD_SCAN = 100
@@ -866,7 +868,7 @@ class Server():
             Server.tmdb_db.pop(title)
             return True
 
-    def dict_have_ep(self, dic: dict, identifier: int, season: int, episode: int)->None | bool:
+    def dict_have_ep(self, dic: dict, identifier: int, season: int, episode: int) -> None | bool:
         if dic.get(str(identifier), None) is None:
             return None
         if dic[str(identifier)].get(str(season).zfill(2), None) is None:
@@ -874,3 +876,20 @@ class Server():
         if dic[str(identifier)][str(season).zfill(2)].get(str(episode).zfill(2), None) is None:
             return None
         return True
+
+    def delete_query( identifier:int, anime=False, show=False, movie=False):
+        if not (anime or show or movie):
+            raise  ValueError("should choose between anime | show | movie")
+        file, text = None, None
+        if anime and str(identifier) in Server.query_anime:
+            Server.query_anime.remove(str(identifier))
+            file, text = QUERY_ANIME, "\n".join(Server.query_anime)
+        elif show and str(identifier) in Server.query_show:
+            Server.query_show.remove(str(identifier))
+            file, text = QUERY_ANIME, "\n".join(Server.query_anime)
+        elif movie and str(identifier) in Server.query_movie:
+            Server.query_movie.remove(str(identifier))
+            file, text = QUERY_ANIME, "\n".join(Server.query_anime)
+        if file is not None and text is not None:
+            with open(os.path.join(VAR_DIR, file), "w") as f:
+                f.write(text)

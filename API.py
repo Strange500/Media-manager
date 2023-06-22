@@ -128,12 +128,15 @@ class web_API(Server):
                     abort(400)
                 if type(request.form.get("id")) == str and request.form.get("id").isnumeric():
                     if request.form.get("choice") == "show":
+                        Server.query_show.append(request.form.get("id"))
                         open(os.path.join(VAR_DIR, QUERY_SHOW), "a").write(request.form.get("id") + "\n")
                         return "ok"
                     if request.form.get("choice") == "anime":
+                        Server.query_anime.append(request.form.get("id"))
                         open(os.path.join(VAR_DIR, QUERY_ANIME), "a").write(request.form.get("id") + "\n")
                         return "ok"
                     elif request.form.get("choice") == "movie":
+                        Server.query_movie.append(request.form.get("id"))
                         open(os.path.join(VAR_DIR, QUERY_MOVIE), "a").write(request.form.get("id") + "\n")
                         return "ok"
                     else:

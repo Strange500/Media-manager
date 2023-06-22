@@ -1956,36 +1956,33 @@ class DataBase(Server):
     def fetch_requested_shows(self, show=False, anime=False):
         if not (show or anime):
             raise ValueError("You should choose between show and anime in function parameter")
-        file, show_status = None, show
+        list_missing, show_status, file = [''], show, None
         if show:
-            file = QUERY_SHOW
+            list_missing, file = Server.query_show, QUERY_SHOW
         elif anime:
-            file = QUERY_ANIME
-        list_missing = open(os.path.join(VAR_DIR, file), "r").read().split("\n")
+            list_missing, file = Server.query_anime, QUERY_ANIME,
         if list_missing == ['']:
             return
         for show in list_missing:
             info = self.get_tmdb_info_by_id(int(show), show=True)
-            if info is None:
-                continue
-            if DataBase.find(info["name"], anime=True) or DataBase.find(info["name"], shows=True):
+            if info is None or DataBase.find(info["name"], anime=True) or DataBase.find(info["name"], shows=True):
                 continue
             for season in info["seasons"]:
                 season_number = season["season_number"]
-                if info["last_episode_to_air"] is not None:
-                    if info["last_episode_to_air"]["season_number"] != int(season_number) or \
-                            info["last_episode_to_air"][
-                                "episode_number"] == info["seasons"][int(season_number) - 1]["episode_count"]:
-                        if self.get_batch(int(season_number), int(show), anime=anime, show=show_status):
-                            print(f"Found batch for Season {season} of {info['name']}")
-                            list_missing.pop(list_missing.index(show))
-                            continue
-                list_ep = [i for i in range(info["seasons"][season_number]["episode_count"] + 1)]
-                if self.get_episode(list_ep, season_number, int(show), anime=anime, show=show_status):
-                    print(f"episodes found for {info['name']} season {season_number}")
-                    list_missing.pop(list_missing.index(show))
-        with open(os.path.join(VAR_DIR, file), "w") as f:
-            f.write("\n".join(list_missing))
+                if info["last_episode_to_air"] is None:
+                    continue
+                season_ended = info["last_episode_to_air"]["season_number"] != int(season_number) or \
+                               info["last_episode_to_air"][
+                                   "episode_number"] == info["seasons"][int(season_number) - 1]["episode_count"]
+                if season_ended and self.get_batch(int(season_number), int(show), anime=anime, show=show_status):
+                    print(f"Found batch for Season {season} of {info['name']}")
+                    Server.delete_query(int(show), anime=anime, show=show_status)
+                    continue
+                else:
+                    list_ep = [i for i in range(info["seasons"][season_number]["episode_count"] + 1)]
+                    if self.get_episode(list_ep, season_number, int(show), anime=anime, show=show_status):
+                        print(f"episodes found for {info['name']} season {season_number}")
+                        Server.delete_query(int(show), anime=anime, show=show_status)
 
     def sort(self, anime=False, shows=False, movie=False):
         directory = None
