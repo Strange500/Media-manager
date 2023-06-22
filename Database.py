@@ -1740,33 +1740,24 @@ class DataBase(Server):
         if not isinstance(id, int):
             raise TypeError("ID should be of type int")
 
-        id = str(id)
+        id, dic, file = str(id), None, None
         season_number = str(season_number).zfill(2)
         episode_number = str(episode_number).zfill(2)
 
         if anime:
-            if DataBase.animes.get(id) is None:
-                return False
-            elif DataBase.animes[id].get(season_number) is None:
-                return False
-            elif DataBase.animes[id][season_number].get(episode_number) is None:
-                return False
-            path = DataBase.animes[id][season_number][episode_number]["path"]
-            DataBase.animes[id][season_number].pop(episode_number)
-            json.dump(DataBase.animes, open(os.path.join(VAR_DIR, ANIME_LIB), "w", encoding="utf-8"), indent=5)
-            return path
-
-        if show:
-            if DataBase.shows.get(id) is None:
-                return False
-            elif DataBase.shows[id].get(season_number) is None:
-                return False
-            elif DataBase.shows[id][season_number].get(episode_number) is None:
-                return False
-            path = DataBase.shows[id][season_number][episode_number]["path"]
-            DataBase.shows[id][season_number].pop(episode_number)
-            json.dump(DataBase.shows, open(os.path.join(VAR_DIR, SHOWS_LIB), "w", encoding="utf-8"), indent=5)
-            return path
+            dic, file = deepcopy(DataBase.animes), ANIME_LIB
+        elif show:
+            dic = deepcopy(DataBase.shows), SHOWS_LIB
+        if dic.get(id) is None:
+            return False
+        elif dic[id].get(season_number) is None:
+            return False
+        elif dic[id][season_number].get(episode_number) is None:
+            return False
+        path = dic[id][season_number][episode_number]["path"]
+        dic[id][season_number].pop(episode_number)
+        json.dump(dic, open(os.path.join(VAR_DIR, file), "w", encoding="utf-8"), indent=5)
+        return path
 
     def delete_season(id: int, season_number: int, show: bool = False, anime: bool = False):
         """
