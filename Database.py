@@ -1,6 +1,6 @@
 import os.path
 import subprocess
-
+from copy import deepcopy
 from bs4 import BeautifulSoup
 
 from connectors import *
@@ -1319,78 +1319,6 @@ class DataBase(Server):
         else:
             raise ValueError("You should choose between anime, show, or movie")
 
-    def update_lib(self, n_item, value, anime=False, shows=False, movie=False, delete=False):
-        dic, r, dirs, lib = self.var(anime, shows, movie)
-        if anime:
-            info = self.tmdb_db.get(n_item, False)
-            if info == False:
-                info = Anime(value, n_item)
-                super().update_tmdb_db(info.title,
-                                       tmdb.TV(info.search.results[0]["id"]).info(append_to_response="seasons"))
-                info = self.tmdb_db[info.title]
-            identifier = str(info['id'])
-
-            if not delete:
-                if DataBase.animes.get(identifier, None) is None:
-                    DataBase.animes[identifier] = {"title": info["name"],
-                                                   "path": value,
-                                                   "seasons": {}}
-                for season in info["seasons"]:
-                    path = os.path.join(DataBase.animes[identifier]['path'],
-                                        f"Season {str(season['season_number']).zfill(2)}")
-                    os.makedirs(path, exist_ok=True)
-                    if DataBase.animes[identifier]["seasons"].get(str(season["season_number"]).zfill(2), None) is None:
-                        DataBase.animes[identifier]["seasons"][str(season["season_number"]).zfill(2)] = {
-                            "season_info": season,
-                            'path': path,
-                            'current_episode': {}}
-            else:
-                DataBase.animes.pop(identifier)
-            json.dump(DataBase.animes, open(os.path.join(VAR_DIR, lib), "w", encoding="utf-8"), indent=5)
-        elif shows:
-            info = self.tmdb_db.get(n_item, False)
-            if info == False:
-                info = Show(value, n_item)
-                super().update_tmdb_db(info.title,
-                                       tmdb.TV(info.search.results[0]["id"]).info(append_to_response="seasons"))
-                info = self.tmdb_db[info.title]
-            identifier = str(info['id'])
-
-            if not delete:
-                if DataBase.shows.get(identifier, None) is None:
-                    DataBase.shows[identifier] = {"title": info["name"],
-                                                  "path": value,
-                                                  "seasons": {}}
-                for season in info["seasons"]:
-                    path = os.path.join(DataBase.shows[identifier]['path'],
-                                        f"Season {str(season['season_number']).zfill(2)}")
-                    os.makedirs(path, exist_ok=True)
-                    if DataBase.shows[identifier]["seasons"].get(str(season["season_number"]).zfill(2), None) is None:
-                        DataBase.shows[identifier]["seasons"][str(season["season_number"]).zfill(2)] = {
-                            "season_info": season,
-                            'path': path,
-                            'current_episode': {}}
-            else:
-                DataBase.shows.pop(identifier)
-            json.dump(DataBase.shows, open(os.path.join(VAR_DIR, lib), "w", encoding="utf-8"), indent=5)
-        elif movie:
-            info = self.tmdb_db.get(n_item, False)
-            if info == False:
-                info = Movie(value, n_item)
-                super().update_tmdb_db(info.title,
-                                       tmdb.TV(info.search.results[0]["id"]).info(append_to_response="seasons"))
-                info = self.tmdb_db[info.title]
-            identifier = str(info['id'])
-
-            if not delete:
-                if DataBase.movies.get(identifier, None) is None:
-                    DataBase.movies[identifier] = {"title": info["title"],
-                                                   "path": value,
-                                                   "file_info": {}}
-            else:
-                DataBase.shows.pop(identifier)
-            json.dump(DataBase.movies, open(os.path.join(VAR_DIR, lib), "w", encoding="utf-8"), indent=5)
-
     def get_dir_freer(self, anime=False, shows=False, movie=False) -> str:
         """return the direcotires with the more free space
             choose between anime, shows and movie, it returns only one result at the time"""
@@ -1402,21 +1330,22 @@ class DataBase(Server):
         if not isinstance(title, str):
             raise ValueError(f"Title argument must be str not {type(title)}")
         tmdb_title = super().find_tmdb_title(title, anime, shows, movie)
-        if tmdb_title == False:
+        if not tmdb_title:
             raise ValueError(f"Can't find the show corresponding to {title}")
-
-        if (anime or shows):
+        if anime:
             title_info = "name"
+            dic, file = deepcopy(DataBase.animes), ANIME_LIB
+        elif anime:
+            title_info = "name"
+            dic, file = deepcopy(DataBase.shows), SHOWS_LIB
         elif movie:
             title_info = "title"
+            dic, file = deepcopy(DataBase.movies), MOVIES_LIB
         else:
             raise ValueError("You have to choose between anime|shows|movie")
-
         info = super().get_tmdb_info(tmdb_title, show=(shows or anime), movie=movie)
-
         if info is None:
             return False
-
         path = os.path.join(self.get_dir_freer(anime, shows, movie), forbidden_car(info[title_info]))
         os.makedirs(path, exist_ok=True)
         season_dict = {}
@@ -1429,41 +1358,19 @@ class DataBase(Server):
                                                                       "current_episode": {}
                                                                       }
         identifier = str(info["id"])
-        if anime:
-            if DataBase.animes.get(identifier, None) is not None:
-                return True
-            else:
-                DataBase.animes[identifier] = {
-                    "title": info[title_info],
-                    "path": path,
-                    "seasons": season_dict
-                }
-                json.dump(DataBase.animes, open(os.path.join(VAR_DIR, ANIME_LIB), "w", encoding="utf-8"), indent=5)
-                return True
-        elif shows:
-            if DataBase.shows.get(info["id"], None) is not None:
-                return True
-            else:
-                DataBase.shows[identifier] = {
-                    "title": info[title_info],
-                    "path": path,
-                    "seasons": season_dict
-                }
-                json.dump(DataBase.shows, open(os.path.join(VAR_DIR, SHOWS_LIB), "w", encoding="utf-8"), indent=5)
-                return True
-        elif movie:
-            if DataBase.movies.get(info["id"], None) is not None:
-                return True
-            else:
-                DataBase.movies[identifier] = {
-                    "title": info[title_info],
-                    "path": path,
-                    "file_info": {}
-                }
-                json.dump(DataBase.movies, open(os.path.join(VAR_DIR, MOVIES_LIB), "w", encoding="utf-8"), indent=5)
-                return True
+        if dic.get(identifier, None) is not None:
+            return True
         else:
-            raise ValueError("You have to choose between anime|shows|movie")
+            dic[identifier] = {
+                "title": info[title_info],
+                "path": path,
+                "seasons": season_dict
+            }
+            if season_dict == {}:
+                dic[identifier].pop("seasons")
+                dic[identifier]["file_info"] = {}
+            json.dump(dic, open(os.path.join(VAR_DIR, file), "w", encoding="utf-8"), indent=5)
+            return True
 
     def add_file(file: SorterShows | SorterMovie, anime=False, shows=False, movie=False) -> bool:
         """if successful return the new path of the file"""
@@ -1595,9 +1502,10 @@ class DataBase(Server):
         if not file.file_reachable:
             raise ValueError("The file you want to add is not reachable")
         id = str(file.id)
-        folder_path = DataBase.movies[id]["path"]
+        folder_path = DataBase.movies.get(id, None)
         if folder_path is None:
             raise ValueError(f"{file.title} not in movie database")
+        folder_path = DataBase.movies[id].get("path", None)
         path = os.path.join(folder_path, file.__str__())
 
         DataBase.movies[id]["file"] = {
@@ -1740,33 +1648,28 @@ class DataBase(Server):
         if not isinstance(id, int):
             raise TypeError("ID should be of type int")
 
-        id = str(id)
+        id, dic, file = str(id), None, None
         season_number = str(season_number).zfill(2)
         episode_number = str(episode_number).zfill(2)
 
         if anime:
-            if DataBase.animes.get(id) is None:
-                return False
-            elif DataBase.animes[id].get(season_number) is None:
-                return False
-            elif DataBase.animes[id][season_number].get(episode_number) is None:
-                return False
-            path = DataBase.animes[id][season_number][episode_number]["path"]
-            DataBase.animes[id][season_number].pop(episode_number)
-            json.dump(DataBase.animes, open(os.path.join(VAR_DIR, ANIME_LIB), "w", encoding="utf-8"), indent=5)
-            return path
-
-        if show:
-            if DataBase.shows.get(id) is None:
-                return False
-            elif DataBase.shows[id].get(season_number) is None:
-                return False
-            elif DataBase.shows[id][season_number].get(episode_number) is None:
-                return False
-            path = DataBase.shows[id][season_number][episode_number]["path"]
-            DataBase.shows[id][season_number].pop(episode_number)
-            json.dump(DataBase.shows, open(os.path.join(VAR_DIR, SHOWS_LIB), "w", encoding="utf-8"), indent=5)
-            return path
+            dic, file = deepcopy(DataBase.animes), ANIME_LIB
+        elif show:
+            dic = deepcopy(DataBase.shows), SHOWS_LIB
+        if dic.get(id) is None:
+            return False
+        elif dic[id].get(season_number) is None:
+            return False
+        elif dic[id][season_number].get(episode_number) is None:
+            return False
+        path = dic[id][season_number][episode_number]["path"]
+        dic[id][season_number].pop(episode_number)
+        json.dump(dic, open(os.path.join(VAR_DIR, file), "w", encoding="utf-8"), indent=5)
+        if anime:
+            DataBase.animes = deepcopy(dic)
+        elif show:
+            DataBase.shows = deepcopy(dic)
+        return path
 
     def delete_season(id: int, season_number: int, show: bool = False, anime: bool = False):
         """
@@ -1814,36 +1717,26 @@ class DataBase(Server):
             return True
 
     def list_missing_episodes(self):
-        missing_episodes_animes = {}
-        for animes in (self.animes):
-            for seasons in self.animes[animes]["seasons"]:
-                for i in range(1, self.animes[animes]["seasons"][seasons]["season_info"]["episode_count"] + 1):
-                    if self.animes[animes]["seasons"][seasons]["current_episode"].get(str(i).zfill(2), None) is None:
-                        if missing_episodes_animes.get(animes, None) is None:
-                            missing_episodes_animes[animes] = {}
-                        if missing_episodes_animes[animes].get(seasons, None) is None:
-                            missing_episodes_animes[animes][seasons] = []
-                        missing_episodes_animes[animes][seasons].append(str(i).zfill(2))
-                try:
-                    if len(missing_episodes_animes[animes][seasons]) == 1:
-                        if missing_episodes_animes[animes][seasons][0] == "00":
-                            missing_episodes_animes[animes][seasons] = []
-                except KeyError:
-                    pass
-        missing_episodes_shows = {}
-        for shows in (self.shows):
-            for seasons in self.shows[shows]["seasons"]:
-                for i in range(1, self.shows[shows]["seasons"][seasons]["season_info"]["episode_count"] + 1):
-                    if self.shows[shows]["seasons"][seasons]["current_episode"].get(str(i).zfill(2), None) is None:
-                        if missing_episodes_shows.get(shows, None) is None:
-                            missing_episodes_shows[shows] = {}
-                        if missing_episodes_shows[shows].get(seasons, None) is None:
-                            missing_episodes_shows[shows][seasons] = []
-                        missing_episodes_shows[shows][seasons].append(str(i).zfill(2))
-                if len(missing_episodes_shows[shows][seasons]) == 1:
-                    if missing_episodes_shows[shows][seasons][0] == "00":
-                        missing_episodes_shows[shows][seasons] = []
-        return {"anime": missing_episodes_animes, "show": missing_episodes_shows}
+        missing, temp = {"anime": {}, "show": {}}, {}
+        for name, lib in [("anime", self.animes), ("show", self.shows)]:
+            for shows in lib:
+                for seasons in lib[shows]["seasons"]:
+                    for i in range(1, lib[shows]["seasons"][seasons]["season_info"]["episode_count"] + 1):
+                        if lib[shows]["seasons"][seasons]["current_episode"].get(str(i).zfill(2), None) is None:
+                            if temp.get(shows, None) is None:
+                                temp[shows] = {}
+                            if temp[shows].get(seasons, None) is None:
+                                temp[shows][seasons] = []
+                            temp[shows][seasons].append(str(i).zfill(2))
+                    try:
+                        if len(temp[shows][seasons]) == 1:
+                            if temp[shows][seasons][0] == "00":
+                                temp[shows][seasons] = []
+                    except KeyError:
+                        pass
+            missing[name] = deepcopy(temp)
+            temp.clear()
+        return missing
 
     def search_episode_source(self, anime_id: int, season_number: int, episode_number: int, anime=False,
                               show=False) -> dict | None:
@@ -1956,44 +1849,44 @@ class DataBase(Server):
     def fetch_requested_shows(self, show=False, anime=False):
         if not (show or anime):
             raise ValueError("You should choose between show and anime in function parameter")
-        file, show_status = None, show
+        list_missing, show_status, file = [''], show, None
         if show:
-            file = QUERY_SHOW
+            list_missing, file = Server.query_show, QUERY_SHOW
         elif anime:
-            file = QUERY_ANIME
-        list_missing = open(os.path.join(VAR_DIR, file), "r").read().split("\n")
+            list_missing, file = Server.query_anime, QUERY_ANIME,
         if list_missing == ['']:
             return
         for show in list_missing:
             info = self.get_tmdb_info_by_id(int(show), show=True)
-            if info is None:
-                continue
-            if DataBase.find(info["name"], anime=True) or DataBase.find(info["name"], shows=True):
+            if info is None or DataBase.find(info["name"], anime=True) or DataBase.find(info["name"], shows=True):
                 continue
             for season in info["seasons"]:
                 season_number = season["season_number"]
-                if info["last_episode_to_air"] is not None:
-                    if info["last_episode_to_air"]["season_number"] != int(season_number) or \
-                            info["last_episode_to_air"][
-                                "episode_number"] == info["seasons"][int(season_number) - 1]["episode_count"]:
-                        if self.get_batch(int(season_number), int(show), anime=anime, show=show_status):
-                            print(f"Found batch for Season {season} of {info['name']}")
-                            list_missing.pop(list_missing.index(show))
-                            continue
-                list_ep = [i for i in range(info["seasons"][season_number]["episode_count"] + 1)]
-                if self.get_episode(list_ep, season_number, int(show), anime=anime, show=show_status):
-                    print(f"episodes found for {info['name']} season {season_number}")
-                    list_missing.pop(list_missing.index(show))
-        with open(os.path.join(VAR_DIR, file), "w") as f:
-            f.write("\n".join(list_missing))
+                if info["last_episode_to_air"] is None:
+                    continue
+                season_ended = info["last_episode_to_air"]["season_number"] != int(season_number) or \
+                               info["last_episode_to_air"][
+                                   "episode_number"] == info["seasons"][int(season_number) - 1]["episode_count"]
+                if season_ended and self.get_batch(int(season_number), int(show), anime=anime, show=show_status):
+                    print(f"Found batch for Season {season} of {info['name']}")
+                    Server.delete_query(int(show), anime=anime, show=show_status)
+                    continue
+                else:
+                    list_ep = [i for i in range(info["seasons"][season_number]["episode_count"] + 1)]
+                    if self.get_episode(list_ep, season_number, int(show), anime=anime, show=show_status):
+                        print(f"episodes found for {info['name']} season {season_number}")
+                        Server.delete_query(int(show), anime=anime, show=show_status)
 
     def sort(self, anime=False, shows=False, movie=False):
-        directory = None
+        directory, list_file, sorter, arg = None, None, None, {"file_reachable": True}
         if anime:
+            sorter, arg = SorterShows, {"file_reachable": True, "is_anime": True}
             directory = self.to_sort_anime
         elif shows:
+            sorter = SorterShows
             directory = self.to_sort_show
         elif movie:
+            sorter = SorterMovie
             directory = self.to_sort_movie
         if type(directory) == str:
             list_file = list_all_files(directory)
@@ -2004,12 +1897,7 @@ class DataBase(Server):
         for file in list_file:
             if os.path.isfile(file) and is_video(file):
                 try:
-                    if shows:
-                        s = SorterShows(file, file_reachable=True)
-                    if anime:
-                        s = SorterShows(file, file_reachable=True, is_anime=True)
-                    elif movie:
-                        s = SorterMovie(file, file_reachable=True)
+                    s = sorter(file, **arg)
                     if self.add(s.title, anime, shows, movie):
                         DataBase.add_file(s, anime, shows, movie)
                     else:
@@ -2027,26 +1915,18 @@ class DataBase(Server):
                     log(e, warning=True)
 
     def serve_forever(self):
+        conf_list = [(self.to_sort_anime, True, False, False),
+                     (self.to_sort_show, False, True, False),
+                     (self.to_sort_movie, False, False, True)]
         try:
             while True:
-                if type(self.to_sort_anime) == str and os.listdir(self.to_sort_anime) != []:
-                    self.sort(anime=True)
-                elif type(self.to_sort_anime) == list:
-                    for dir in self.to_sort_anime:
-                        if os.listdir(dir) != []:
-                            self.sort(anime=True)
-                if type(self.to_sort_show) == str and os.listdir(self.to_sort_show) != []:
-                    self.sort(shows=True)
-                elif type(self.to_sort_show) == list:
-                    for dir in self.to_sort_show:
-                        if os.listdir(dir) != []:
-                            self.sort(shows=True)
-                if type(self.to_sort_movie) == str and os.listdir(self.to_sort_movie) != []:
-                    self.sort(movie=True)
-                elif type(self.to_sort_movie) == list:
-                    for dir in self.to_sort_movie:
-                        if os.listdir(dir) != []:
-                            self.sort(movie=True)
+                for path, anime, show, movie in conf_list:
+                    if type(path) == str and os.listdir(path) != []:
+                        self.sort(anime=anime, shows=show, movie=movie)
+                    elif type(self.to_sort_anime) == list:
+                        for directory in self.to_sort_anime:
+                            if os.listdir(directory):
+                                self.sort(anime=anime, shows=show, movie=movie)
                 time.sleep(5)
         except KeyboardInterrupt:
             print("shutting down")
@@ -2069,5 +1949,5 @@ class DataBase(Server):
 
 if __name__ == "__main__":
     d = DataBase()
-    d.fetch_requested_shows(anime=True)
+    d.fetch_missing_ep()
     pass
