@@ -1,21 +1,31 @@
 # Shows-Sorter
 An automated sorter (Rename/Sort/Manage Database)
 WORK IN PROGRESS
-<a href="https://www.codefactor.io/repository/github/strange500/media-manager"><img src="https://www.codefactor.io/repository/github/strange500/media-manager/badge" alt="CodeFactor" /></a>
+[![CodeFactor](https://www.codefactor.io/repository/github/strange500/media-manager/badge)](https://www.codefactor.io/repository/github/strange500/media-manager)
 <hr>
-<h1> Presentation </h1>
-This server allow you to manage your Anime/Show/Movie. Here is a list of what it can do
-<ul>
-  <li>create directories according to metadata from <a href="https://www.themoviedb.org/">TheMovieDataBase</a> (including seasons)</li>
-  <li>Move episode according to there title to the right directory</li>
-  <li>Can download torrent from rss feeds, filter on words can be applied</li>
-  <li>provide an API to manage the database from program or website (a web UI is being built <a href="https://github.com/Strange500/Shows-Sorter/tree/test">here</a>)</li>
-  <li>will be able to suuport directories from Google drive</li>
-</ul>
+
+# Presentation
+
+This server allows you to manage your Anime/Show/Movie collection. Here is a list of what it can do:
+
+- Create directories according to metadata from [TheMovieDataBase](https://www.themoviedb.org/) (including seasons)
+- Move episodes according to their title to the right directory
+- Download torrents from RSS feeds, with the ability to apply word filters
+- Provide an API to manage the database programmatically or through a website (a web UI is being built [here](https://github.com/Strange500/Shows-Sorter/tree/test))
+- Will be able to support directories from Google Drive
+
 <hr>
-<h1>Installation</h1>
-you will need python 3.8 or newer, you will need several depencies<br>
-<code>pip install  feedparser, psutil, requests, tmdbsimple, flask, flask_cors, pymediainfo
-</code>
-<br> <p> You will need to correctly configure the server, download server.conf and replace path according to instructions in (directories are not created automatically please create them before starting server (server will crash otherwise)</p> <br>
-<p>By default the server stock its data on windows in <code>AppData\Local\my-server</code> and on Linux <code>/var/lib/my-server</code>. But you can change it by changing <code>VAR_DIR</code> in lib.py by the path you want
+
+# Installation
+
+You will need Python 3.8 or newer, as well as several dependencies. Run the following command to install them:
+
+```bash
+pip install feedparser psutil requests tmdbsimple flask flask_cors pymediainfo 
+```
+
+You will also need to correctly configure the server. Download `server.conf` and replace the paths according to the instructions. Please note that directories are not created automatically, so make sure to create them before starting the server (otherwise, the server will crash).
+
+By default, the server stores its data on Windows in `AppData\Local\my-server` and on Linux in `/var/lib/my-server`. However, you can change this by modifying the `VAR_DIR` variable in `lib.py` with the desired path.
+
+
