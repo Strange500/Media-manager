@@ -1402,21 +1402,22 @@ class DataBase(Server):
         if not isinstance(title, str):
             raise ValueError(f"Title argument must be str not {type(title)}")
         tmdb_title = super().find_tmdb_title(title, anime, shows, movie)
-        if tmdb_title == False:
+        if not tmdb_title:
             raise ValueError(f"Can't find the show corresponding to {title}")
-
-        if (anime or shows):
+        if anime:
             title_info = "name"
+            dic, file = deepcopy(DataBase.animes), ANIME_LIB
+        elif anime:
+            title_info = "name"
+            dic, file = deepcopy(DataBase.shows), SHOWS_LIB
         elif movie:
             title_info = "title"
+            dic, file = deepcopy(DataBase.movies), MOVIES_LIB
         else:
             raise ValueError("You have to choose between anime|shows|movie")
-
         info = super().get_tmdb_info(tmdb_title, show=(shows or anime), movie=movie)
-
         if info is None:
             return False
-
         path = os.path.join(self.get_dir_freer(anime, shows, movie), forbidden_car(info[title_info]))
         os.makedirs(path, exist_ok=True)
         season_dict = {}
@@ -1429,43 +1430,19 @@ class DataBase(Server):
                                                                       "current_episode": {}
                                                                       }
         identifier = str(info["id"])
-        if anime:
-
-        if anime:
-            if DataBase.animes.get(identifier, None) is not None:
-                return True
-            else:
-                DataBase.animes[identifier] = {
-                    "title": info[title_info],
-                    "path": path,
-                    "seasons": season_dict
-                }
-                json.dump(DataBase.animes, open(os.path.join(VAR_DIR, ANIME_LIB), "w", encoding="utf-8"), indent=5)
-                return True
-        elif shows:
-            if DataBase.shows.get(info["id"], None) is not None:
-                return True
-            else:
-                DataBase.shows[identifier] = {
-                    "title": info[title_info],
-                    "path": path,
-                    "seasons": season_dict
-                }
-                json.dump(DataBase.shows, open(os.path.join(VAR_DIR, SHOWS_LIB), "w", encoding="utf-8"), indent=5)
-                return True
-        elif movie:
-            if DataBase.movies.get(info["id"], None) is not None:
-                return True
-            else:
-                DataBase.movies[identifier] = {
-                    "title": info[title_info],
-                    "path": path,
-                    "file_info": {}
-                }
-                json.dump(DataBase.movies, open(os.path.join(VAR_DIR, MOVIES_LIB), "w", encoding="utf-8"), indent=5)
-                return True
+        if dic.get(identifier, None) is not None:
+            return True
         else:
-            raise ValueError("You have to choose between anime|shows|movie")
+            dic[identifier] = {
+                "title": info[title_info],
+                "path": path,
+                "seasons": season_dict
+            }
+            if season_dict == {}:
+                dic[identifier].pop("seasons")
+                dic[identifier]["file_info"] = {}
+            json.dump(dic, open(os.path.join(VAR_DIR, file), "w", encoding="utf-8"), indent=5)
+            return True
 
     def add_file(file: SorterShows | SorterMovie, anime=False, shows=False, movie=False) -> bool:
         """if successful return the new path of the file"""
@@ -1597,9 +1574,10 @@ class DataBase(Server):
         if not file.file_reachable:
             raise ValueError("The file you want to add is not reachable")
         id = str(file.id)
-        folder_path = DataBase.movies[id]["path"]
+        folder_path = DataBase.movies.get(id, None)
         if folder_path is None:
             raise ValueError(f"{file.title} not in movie database")
+        folder_path = DataBase.movies[id].get("path", None)
         path = os.path.join(folder_path, file.__str__())
 
         DataBase.movies[id]["file"] = {
