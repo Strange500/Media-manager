@@ -44,6 +44,12 @@ os.makedirs(VAR_DIR, exist_ok=True)
 os.makedirs(CONF_DIR, exist_ok=True)
 
 
+
+def remove_non_ascii(chaine):
+    chaine_encodee = chaine.encode('ascii', 'ignore')
+    chaine_decodee = chaine_encodee.decode('ascii')
+    return chaine_decodee
+
 def list_all_files(directory: str) -> list:
     """
     Recursively lists all files within a directory.
