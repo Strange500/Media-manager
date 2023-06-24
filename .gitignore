@@ -27,3 +27,5 @@ server.conf
 *.mkv
 *.txt
 Qbitorrent.py
+*.iml
+.idea/Media-manager.iml
