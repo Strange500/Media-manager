@@ -933,21 +933,24 @@ class YggConnector(ConnectorShowBase):
         return {f"{name}": {"id": id, "seeders": seed} for name, id, seed in
                 zip(torrent_names, target_values, seeders)}, total_result
 
+    def get_value(self,part:str)->tuple:
+        key, value = "", ""
+        while part != "" and part[0] != ":":
+            key += part[0]
+            part = part[1:]
+        part, key = part[1:], key.replace(".", "").lower().strip()
+        while part != "":
+            value += part[0]
+            part = part[1:]
+        value = value.strip()
+        return (key, value)
     def get_nfo(self, id_torrent: int):
         time.sleep(0.1)
         response = requests.request('GET', f'https://www3.yggtorrent.do/engine/get_nfo?torrent={id_torrent}')
         content, result = self.prepare_nfo(str(response.content)), {}
         temp, title = {}, None
         for part in content:
-            key, value = "", ""
-            while part != "" and part[0] != ":":
-                key += part[0]
-                part = part[1:]
-            part, key = part[1:], key.replace(".", "").lower().strip()
-            while part != "":
-                value += part[0]
-                part = part[1:]
-            value = value.strip()
+            key, value = self.get_value(part)
             if key == "" and value == "":
                 continue
             elif key != "" and value == "":
@@ -966,12 +969,7 @@ class YggConnector(ConnectorShowBase):
                     temp[title] = {}
                 if key:
                     temp[title][key] = value
-        temp.clear()
-        temp = deepcopy(result)
-        for key in result:
-            if result[key] == {}:
-                temp.pop(key)
-        return temp
+        return delete_empty_dictionnaries(result)
 
     def wanted_title(self, key:str) -> str | bool :
         key = remove_non_ascii(key).lower()

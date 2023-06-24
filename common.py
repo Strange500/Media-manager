@@ -44,6 +44,11 @@ os.makedirs(VAR_DIR, exist_ok=True)
 os.makedirs(CONF_DIR, exist_ok=True)
 
 
+def delete_empty_dictionnaries(dic: Dict[dict])->dict:
+    for key in dic:
+        if dic[key] == {}:
+            dic.pop(key)
+    return dic
 
 def remove_non_ascii(chaine):
     chaine_encodee = chaine.encode('ascii', 'ignore')
