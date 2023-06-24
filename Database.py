@@ -1,10 +1,9 @@
 import os.path
 import subprocess
-from copy import deepcopy
 from bs4 import BeautifulSoup
 import feedparser, re
 from fuzzywuzzy import fuzz
-
+from operator import itemgetter
 from common import *
 
 
@@ -749,6 +748,9 @@ class ConnectorShowBase(Server):
     connector_conf_dir = os.path.join(CONF_DIR, "connectors")
     connector_conf_file = "common.conf"
     os.makedirs(connector_conf_dir, exist_ok=True)
+    wanted_nfo_specification = ["format", "codec id", "duration", "width",
+                                "height", "language", "resolution", "hauteur", "largeur", "duree"]
+    wanted_nfo_title = ["text", "video", "audio", "mkv"]
 
     if not os.path.isfile(os.path.join(connector_conf_dir, connector_conf_file)):
         with open(os.path.join(connector_conf_dir, connector_conf_file), "w") as f:
@@ -802,22 +804,56 @@ class ConnectorShowBase(Server):
                     conf[key] = value
         return conf
 
-    def extract_better_version(self, results):
-        choice = None
-        for ep in results:
-            if int(ep['seeders']) == 0:
-                pass
-            elif ep is not None:
-                choice = ep
-        return choice
+    def exclude_zero_seeders(self, dic:list):
+        temp = deepcopy(dic)
+        for key in dic:
+            if int(key["seeders"]) == 0:
+                temp.remove(key)
+        return deepcopy(temp)
+    def prepare_dict_sort(self, result:dict)->dict:
+        result = self.exclude_zero_seeders(result)
+        r = []
+        temp = {}
+        for ep in result:
+            temp.clear()
+            temp = {}
+            for title in ConnectorShowBase.wanted_nfo_title:
+                if ep["nfo"].get(title, None) is None:
+                    continue
+                for key in ConnectorShowBase.wanted_nfo_specification:
 
+                    if temp.get(key, None) != -1 and temp.get(key, None) is not None:
+                        continue
+                    if ep["nfo"][title].get(key, None) is None:
+                        temp[key] = -1
+                    else:
+                        if key in ["width", "height", "hauteur", "largeur"]:
+                            n_key = key
+                            if key == "hauteur":
+                                n_key = "height"
+                            if key == "largeur":
+                                n_key = "width"
+                            temp[n_key] = convert_str_to_int(ep["nfo"][title][key])
+                        elif key == "resolution" and "x" in ep["nfo"][title][key]:
+                            temp["width"] = convert_str_to_int(ep["nfo"][title][key].split("x")[0])
+                            temp["height"] = convert_str_to_int(ep["nfo"][title][key].split("x")[1])
+                        else:
+                            temp[key] = ep["nfo"][title][key]
+            if temp != {}:
+                temp['id'] = ep["torrent_id"]
+                r.append(deepcopy(temp))
+        return r
+
+    def extract_better_version(self, results) -> dict|None:
+        sorted_result = deepcopy(self.prepare_dict_sort(results))
+        choice = None
+        sorted_result = sorted(sorted_result, key=itemgetter('width', 'largeur'), reverse=True)
+        return [i for i in results if i["torrent_id"] == sorted_result[0]['id']][0]
 
 class YggConnector(ConnectorShowBase):
     id_parsed_ep = []
     id_parsed_batches = []
-    wanted_nfo_specification = ["format", "codec id", "duration", "width",
-                                "height", "language", "resolution"]
-    wanted_nfo_title = ["text", "video", "audio", "mkv"]
+
 
     def __init__(self, id: int, movie=False):
         super().__init__(id, movie=movie)
@@ -973,7 +1009,7 @@ class YggConnector(ConnectorShowBase):
 
     def wanted_title(self, key:str) -> str | bool :
         key = remove_non_ascii(key).lower()
-        for wanted in YggConnector.wanted_nfo_title:
+        for wanted in ConnectorShowBase.wanted_nfo_title:
             wanted_ori = wanted
             wanted = remove_non_ascii(wanted).lower()
             if fuzz.ratio(key, wanted) > 65:
@@ -981,7 +1017,7 @@ class YggConnector(ConnectorShowBase):
         return False
     def wanted_info(self, key:str) -> str | bool :
         key = remove_non_ascii(key).lower()
-        for wanted in YggConnector.wanted_nfo_specification:
+        for wanted in ConnectorShowBase.wanted_nfo_specification:
             wanted_ori = wanted
             wanted = remove_non_ascii(wanted).lower()
             if fuzz.ratio(key, wanted) > 80:
@@ -1162,7 +1198,7 @@ class YggConnector(ConnectorShowBase):
             raise ValueError("You should choose anime or show in function parameter")
         db_results, choice, trusted_source = self.find_from_data_ep(season_number, episode_number), None, None
         if db_results is not None:
-            return db_results[0]
+            choice = self.extract_better_version(db_results)
         if anime:
             trusted_source = self.trusted_sources_rss_anime
         elif show:
@@ -1182,11 +1218,14 @@ class YggConnector(ConnectorShowBase):
                 else:
                     results = self.scrap_ep(anime, show)
                     YggConnector.id_parsed_ep.append(str(self.id))
+
                 choice = self.extract_better_version(
                     results[str(self.id)][str(season_number).zfill(2)][str(episode_number).zfill(2)])
-            except KeyError:
+            except KeyError as e:
+                print(e)
                 return None
-
+        json.dump(self.stored_data,
+                  open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
         return choice
 
     def find_batch(self, season_number: int, anime=False, show=False):
@@ -1204,13 +1243,15 @@ class YggConnector(ConnectorShowBase):
                 results = self.scrap_batch(anime, show)
                 YggConnector.id_parsed_ep.append(str(self.id))
             try:
-                for batch in self.scrap_batch(anime, show)[str(self.id)][str(season_number).zfill(2)]["batch"]:
+                for batch in results[str(self.id)][str(season_number).zfill(2)]["batch"]:
                     if int(batch["seed"]) == 0:
                         continue
                     if batch != None:
                         choice = batch
             except KeyError:
                 choice = None
+        json.dump(self.stored_data,
+                  open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
 
         return choice
 
@@ -1943,6 +1984,7 @@ class DataBase(Server):
         if batch is not None:
             find = True
             self.dl_torrent(batch["link"], batch["torrent_title"], anime, show, movie=False)
+
         return find
 
     def fetch_missing_ep(self):
@@ -1966,6 +2008,7 @@ class DataBase(Server):
                     if self.get_episode(list_missing[target][show][season], int(season), int(show), anime=anime,
                                         show=show_status):
                         print(f"episodes found for {info['name']} season {season}")
+
 
     def fetch_requested_shows(self, show=False, anime=False):
         if not (show or anime):
@@ -2072,4 +2115,8 @@ if __name__ == "__main__":
     y = YggConnector(1726, movie=True)
     d = DataBase()
     d.fetch_missing_ep()
+
+
+
+
     pass

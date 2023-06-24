@@ -11,6 +11,8 @@ from urllib.parse import urlparse, quote
 import appdirs
 import requests
 import tmdbsimple as tmdb
+from copy import deepcopy
+
 
 if platform.system() == "Linux":
     import psutil
@@ -43,12 +45,19 @@ SUB_LIST = {"VOSTFR": "fre", "OmdU": "ger"}
 os.makedirs(VAR_DIR, exist_ok=True)
 os.makedirs(CONF_DIR, exist_ok=True)
 
-
-def delete_empty_dictionnaries(dic: Dict[dict])->dict:
+def convert_str_to_int(string:str)->int:
+    temp = ""
+    while string != "":
+        if string[0].isnumeric():
+            temp += string[0]
+        string = string[1:]
+    return int(temp)
+def delete_empty_dictionnaries(dic: dict)->dict:
+    temp = deepcopy(dic)
     for key in dic:
-        if dic[key] == {}:
-            dic.pop(key)
-    return dic
+        if temp[key] == {}:
+            temp.pop(key)
+    return temp
 
 def remove_non_ascii(chaine):
     chaine_encodee = chaine.encode('ascii', 'ignore')
