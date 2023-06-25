@@ -820,7 +820,6 @@ class Server():
                 return info
         else:
             found_title = self.find_tmdb_title(title, shows=True)
-            print(title, found_title)
             info = Server.tmdb_db.get(found_title, None)
             return info
 

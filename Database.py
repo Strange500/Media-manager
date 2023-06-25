@@ -777,7 +777,7 @@ class ConnectorShowBase(Server):
             if title.get("translations", None) is None:
                 raise Exception(f"cannot find all titles for the show {id}")
             else:
-                if title.get("translations").get("translations", None) is None:
+                if title.get('translations', None).get("translations", None) is None:
                     raise Exception(f"cannot find all titles for the show {id}")
                 else:
                     return [t["data"][text] for t in title.get("translations").get("translations") if
@@ -804,13 +804,14 @@ class ConnectorShowBase(Server):
                     conf[key] = value
         return conf
 
-    def exclude_zero_seeders(self, dic:list):
+    def exclude_zero_seeders(self, dic: list):
         temp = deepcopy(dic)
         for key in dic:
             if int(key["seeders"]) == 0:
                 temp.remove(key)
         return deepcopy(temp)
-    def prepare_dict_sort(self, result:dict)->dict:
+
+    def prepare_dict_sort(self, result: dict) -> dict:
         result = self.exclude_zero_seeders(result)
         r = []
         temp = {}
@@ -844,16 +845,16 @@ class ConnectorShowBase(Server):
                 r.append(deepcopy(temp))
         return r
 
-    def extract_better_version(self, results) -> dict|None:
+    def extract_better_version(self, results) -> dict | None:
         sorted_result = deepcopy(self.prepare_dict_sort(results))
         choice = None
         sorted_result = sorted(sorted_result, key=itemgetter('width', 'largeur'), reverse=True)
         return [i for i in results if i["torrent_id"] == sorted_result[0]['id']][0]
 
+
 class YggConnector(ConnectorShowBase):
     id_parsed_ep = []
     id_parsed_batches = []
-
 
     def __init__(self, id: int, movie=False):
         super().__init__(id, movie=movie)
@@ -969,7 +970,7 @@ class YggConnector(ConnectorShowBase):
         return {f"{name}": {"id": id, "seeders": seed} for name, id, seed in
                 zip(torrent_names, target_values, seeders)}, total_result
 
-    def get_value(self,part:str)->tuple:
+    def get_value(self, part: str) -> tuple:
         key, value = "", ""
         while part != "" and part[0] != ":":
             key += part[0]
@@ -980,6 +981,7 @@ class YggConnector(ConnectorShowBase):
             part = part[1:]
         value = value.strip()
         return (key, value)
+
     def get_nfo(self, id_torrent: int):
         time.sleep(0.1)
         response = requests.request('GET', f'https://www3.yggtorrent.do/engine/get_nfo?torrent={id_torrent}')
@@ -991,7 +993,8 @@ class YggConnector(ConnectorShowBase):
                 continue
             elif key != "" and value == "":
                 if title is not None:
-                    result = {**result, **temp}
+                    if temp != {title: {}}:
+                        result = {**result, **deepcopy(temp)}
                     temp.clear()
                 key = self.wanted_title(key)
                 if key:
@@ -1000,14 +1003,16 @@ class YggConnector(ConnectorShowBase):
                 else:
                     key = "None"
             if title is not None and title != key and len(key) < 30 and len(value) < 60 and key != "None":
+
                 key = self.wanted_info(key)
                 if temp.get(title, None) is None:
                     temp[title] = {}
                 if key:
                     temp[title][key] = value
+        result = {**result, **deepcopy(temp)}
         return delete_empty_dictionnaries(result)
 
-    def wanted_title(self, key:str) -> str | bool :
+    def wanted_title(self, key: str) -> str | bool:
         key = remove_non_ascii(key).lower()
         for wanted in ConnectorShowBase.wanted_nfo_title:
             wanted_ori = wanted
@@ -1015,7 +1020,8 @@ class YggConnector(ConnectorShowBase):
             if fuzz.ratio(key, wanted) > 65:
                 return wanted_ori
         return False
-    def wanted_info(self, key:str) -> str | bool :
+
+    def wanted_info(self, key: str) -> str | bool:
         key = remove_non_ascii(key).lower()
         for wanted in ConnectorShowBase.wanted_nfo_specification:
             wanted_ori = wanted
@@ -1023,6 +1029,7 @@ class YggConnector(ConnectorShowBase):
             if fuzz.ratio(key, wanted) > 80:
                 return wanted_ori
         return False
+
     def prepare_nfo(self, nfo_content: str):
         content = bytes(str(nfo_content).replace('b"<pre>', "").replace('\n</pre>"', ""), "utf-8").decode(
             'unicode_escape')
@@ -1119,7 +1126,8 @@ class YggConnector(ConnectorShowBase):
                                                "torrent_id": results[torrent]["id"],
                                                "nfo": self.get_nfo(results[torrent]["id"])})
         self.stored_data["web"] = {**self.stored_data["web"], **feed}
-        json.dump(self.stored_data, open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
+        json.dump(self.stored_data,
+                  open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
         return feed
 
     def scrap_batch(self, anime=False, show=False):
@@ -1155,8 +1163,8 @@ class YggConnector(ConnectorShowBase):
             feed[id][ep.season]["batch"].append({"torrent_title": original_name,
                                                  "link": f"https://www3.yggtorrent.do/rss/download?id={results[torrent]['id']}&passkey={self.pass_key}",
                                                  "seed": results[torrent]['seeders'],
-                                               "torrent_id": results[torrent]["id"],
-                                               "nfo": self.get_nfo(results[torrent]["id"])})
+                                                 "torrent_id": results[torrent]["id"],
+                                                 "nfo": self.get_nfo(results[torrent]["id"])})
         self.stored_data["web"] = {**self.stored_data["web"], **feed}
         json.dump(self.stored_data,
                   open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
@@ -1186,8 +1194,8 @@ class YggConnector(ConnectorShowBase):
             feed[id].append({"torrent_title": original_name,
                              "link": f"https://www3.yggtorrent.do/rss/download?id={results[torrent]['id']}&passkey={self.pass_key}",
                              "seed": results[torrent]['seeders'],
-                            "torrent_id": results[torrent]["id"],
-                            "nfo": self.get_nfo(results[torrent]["id"])})
+                             "torrent_id": results[torrent]["id"],
+                             "nfo": self.get_nfo(results[torrent]["id"])})
         self.stored_data["web"] = {**self.stored_data["web"], **feed}
         json.dump(self.stored_data,
                   open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
@@ -1241,7 +1249,7 @@ class YggConnector(ConnectorShowBase):
                 results = self.stored_data["web"]
             else:
                 results = self.scrap_batch(anime, show)
-                YggConnector.id_parsed_ep.append(str(self.id))
+                YggConnector.id_parsed_batches.append(str(self.id))
             try:
                 for batch in results[str(self.id)][str(season_number).zfill(2)]["batch"]:
                     if int(batch["seed"]) == 0:
@@ -1950,6 +1958,7 @@ class DataBase(Server):
 
     def dl_torrent(self, url: str, name: str, show=False, anime=False, movie=False):
         target_directory = None
+        print(show, anime)
         if anime:
             target_directory = os.path.join(Server.conf['torrent_dir'], "anime")
         elif show:
@@ -1961,6 +1970,7 @@ class DataBase(Server):
         torrent_content = requests.request('GET', url).content
         if os.path.splitext(name)[1] != ".torrent":
             name = name + ".torrent"
+        os.makedirs(target_directory, exist_ok=True)
         with open(os.path.join(target_directory, forbidden_car(name)), "wb") as f:
             f.write(torrent_content)
 
@@ -2008,7 +2018,6 @@ class DataBase(Server):
                     if self.get_episode(list_missing[target][show][season], int(season), int(show), anime=anime,
                                         show=show_status):
                         print(f"episodes found for {info['name']} season {season}")
-
 
     def fetch_requested_shows(self, show=False, anime=False):
         if not (show or anime):
@@ -2112,11 +2121,9 @@ class DataBase(Server):
 
 
 if __name__ == "__main__":
-    y = YggConnector(1726, movie=True)
     d = DataBase()
     d.fetch_missing_ep()
-
-
-
+    y = YggConnector(123249)
+    print(y.get_nfo(971860))
 
     pass
