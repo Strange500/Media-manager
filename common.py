@@ -44,16 +44,18 @@ os.makedirs(VAR_DIR, exist_ok=True)
 os.makedirs(CONF_DIR, exist_ok=True)
 
 
-def delete_empty_dictionnaries(dic: Dict[dict])->dict:
+def delete_empty_dictionnaries(dic: dict) -> dict:
     for key in dic:
         if dic[key] == {}:
             dic.pop(key)
     return dic
 
+
 def remove_non_ascii(chaine):
     chaine_encodee = chaine.encode('ascii', 'ignore')
     chaine_decodee = chaine_encodee.decode('ascii')
     return chaine_decodee
+
 
 def list_all_files(directory: str) -> list:
     """
@@ -113,19 +115,23 @@ def compare_dictionaries(dict1, dict2):
 
     return sorted(dict1.items()) == sorted(dict2.items())
 
-def delete_unwanted_words(title:str)->str:
-    keywords = ["2nd Season", "1st Season", "3rd Season", "Cour 2", "INTEGRAL", "integrale","intégrale", "INTEGRALE"]
+
+def delete_unwanted_words(title: str) -> str:
+    keywords = ["2nd Season", "1st Season", "3rd Season", "Cour 2", "INTEGRAL", "integrale", "intégrale", "INTEGRALE"]
     for keyword in keywords:
         title = title.replace(keyword, "")
     return title
 
-def split_on_season_word(title: str)->str:
+
+def split_on_season_word(title: str) -> str:
     keywords = ["Season", "season", "Saison", "saison"]
     for keyword in keywords:
         if keyword in title:
             title = title.split(keyword)[0]
             return title
     return title
+
+
 def safe_move(src, dst, max_retries=2, retry_delay=1):
     """
     Safely moves a file from the source to the destination path.
@@ -376,6 +382,7 @@ def log(to_log, warning=False, error=False):
     """
     if isinstance(to_log, str):
         log_message = ""
+        print(to_log)
 
         if error:
             log_message = f"[{time_log()}] ERROR: {to_log}\n"
@@ -512,12 +519,17 @@ def get_temp():
             if sensor.SensorType == u'Temperature' and sensor.name == "CPU Package":
                 return sensor.value
 
+
 def check_url_syntax(url):
     parsed_url = urlparse(url)
     return all([parsed_url.scheme, parsed_url.netloc])
+
+
 def correct_and_encode_url(url):
     corrected_url = quote(url, safe=':/?=&')  # Encode special characters
     return corrected_url
+
+
 class Server():
     tmdb_title: dict
     tmdb_db: dict
@@ -530,7 +542,7 @@ class Server():
 
     list_file = [ANIME_LIB, QUERY_MOVIE, QUERY_SHOW, MOVIES_LIB, SHOWS_LIB, CONF_FILE, TMDB_TITLE, TMDB_DB,
                  RSS_SHOW, RSS_ANIME,
-                 RSS_MOVIE, GGD_LIB, FEED_STORAGE, QUERY_ANIME]
+                 RSS_MOVIE, GGD_LIB, FEED_STORAGE, QUERY_ANIME, os.path.join(CONF_DIR, CONF_FILE)]
     for file in list_file:
         path = os.path.join(VAR_DIR, file)
         if os.path.isfile(path) and check_json(path):
@@ -588,7 +600,7 @@ class Server():
 
             if config.get("GGD"):
                 if config["GGD"] == "FALSE":
-                    config.pop("GGD_dir", None)
+                    pass
                 elif config["GGD"] == "TRUE":
                     pass
                 else:
@@ -721,7 +733,11 @@ class Server():
         """
         if not isinstance(determined_title, str):
             raise TypeError(f"determined_title is not a string: {determined_title}")
-        return Server.tmdb_title.get(determined_title, None)
+        if Server.tmdb_db.get(determined_title, None) is None:
+            return None
+        if Server.tmdb_db.get(determined_title, None).get("name", None) is None:
+            return Server.tmdb_db.get(determined_title, None).get("title", None)
+        return Server.tmdb_db.get(determined_title, None).get("name", None)
 
     def store_tmdb_info(self, id: int, show=False, movie=False):
         """Stores TMDB information for a given ID in the TMDB database.
@@ -760,7 +776,7 @@ class Server():
         self.update_tmdb_db(info[t], info)
         return info
 
-    def get_tmdb_info_by_id( self, id:int, show: int |None = False, movie: bool |None = False):
+    def get_tmdb_info_by_id(self, id: int, show: int | None = False, movie: bool | None = False):
         if not isinstance(id, int):
             raise TypeError(f"id should be int not {type(id)}")
         else:
@@ -769,6 +785,7 @@ class Server():
                     return Server.tmdb_db[keys]
             info = self.store_tmdb_info(id, show=show, movie=movie)
             return info
+
     def get_tmdb_info(self, title: str, show=False, movie=False):
         """Retrieves the TMDB information for a given title from the TMDB database.
 
@@ -796,6 +813,7 @@ class Server():
             TypeError: If the provided title is not a string.
             ValueError: If both the `show` and `movie` flags are set to True or both are set to False.
         """
+        print(title, type(title))
         if not isinstance(title, str):
             raise TypeError("title is not a string")
         if (show and movie) or not (show or movie):
@@ -806,13 +824,13 @@ class Server():
                 if info.get("seasons", None) is None:
                     self.store_tmdb_info(info["id"], show=True, movie=False)
                     info = Server.tmdb_db.get(title, None)
+                    print(Server.tmdb_db)
                 return info
             if movie:
                 return info
         else:
-            found_title = self.find_tmdb_title(title, shows=True)
-            print(title, found_title)
-            info = Server.tmdb_db.get(found_title, None)
+            info = self.get_tmdb_title(title, show=show, movie=movie)
+            print(info)
             return info
 
     def find_tmdb_title(self, title: str, anime=False, shows=False, movie=False) -> str | bool:
@@ -888,7 +906,7 @@ class Server():
             return None
         return True
 
-    def delete_query( identifier:int, anime=False, show=False, movie=False):
+    def delete_query(identifier: int, anime=False, show=False, movie=False):
         if not (anime or show or movie):
             raise ValueError("should choose between anime,show or movie")
         file, text = None, None

@@ -518,9 +518,9 @@ class Show(Server):
         self.path = path
         self.is_show = is_show
         self.title = self.find_tmdb_title(title, shows=is_show, anime=(not is_show), movie=False)
-        if self.title is False:
+        if self.title is None:
             raise Exception(f"Show {title} not found")
-        self.info = super().get_tmdb_info(title, show=True)
+        self.info = super().get_tmdb_info(self.title, show=True)
         if self.info is None:
             raise Exception(f"Show {title} no information found")
         self.id = self.info["id"]
@@ -2016,6 +2016,7 @@ class DataBase(Server):
             for directory in directory:
                 list_file += list_all_files(directory)
         for file in list_file:
+            print(file)
             if os.path.isfile(file) and is_video(file):
                 try:
                     s = sorter(file, **arg)
