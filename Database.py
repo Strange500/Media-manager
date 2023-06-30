@@ -1409,9 +1409,7 @@ class DataBase(Server):
 
         if not tmdb_title:
             return False
-        serv = Server()
         info = serv.get_tmdb_info(tmdb_title, show=(anime or shows), movie=movie)
-
         if info is None:
             return False
 
@@ -1454,7 +1452,7 @@ class DataBase(Server):
         if anime:
             title_info = "name"
             dic, file = deepcopy(DataBase.animes), ANIME_LIB
-        elif anime:
+        elif shows:
             title_info = "name"
             dic, file = deepcopy(DataBase.shows), SHOWS_LIB
         elif movie:
@@ -1489,7 +1487,14 @@ class DataBase(Server):
                 dic[identifier].pop("seasons")
                 dic[identifier]["file_info"] = {}
             json.dump(dic, open(os.path.join(VAR_DIR, file), "w", encoding="utf-8"), indent=5)
+            if anime:
+                DataBase.animes = dic
+            elif shows:
+                DataBase.shows = dic
+            elif movie:
+                DataBase.movies = dic
             return True
+
 
     def add_file(file: SorterShows | SorterMovie, anime=False, shows=False, movie=False) -> bool:
         """if successful return the new path of the file"""
@@ -2016,7 +2021,6 @@ class DataBase(Server):
             for directory in directory:
                 list_file += list_all_files(directory)
         for file in list_file:
-            print(file)
             if os.path.isfile(file) and is_video(file):
                 try:
                     s = sorter(file, **arg)
@@ -2033,8 +2037,7 @@ class DataBase(Server):
                 except subprocess.CalledProcessError as e:
                     print(e)
                     pass
-                except ValueError as e:
-                    log(e, warning=True)
+
 
     def serve_forever(self):
         conf_list = [(self.to_sort_anime, True, False, False),

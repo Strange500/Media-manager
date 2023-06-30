@@ -813,7 +813,6 @@ class Server():
             TypeError: If the provided title is not a string.
             ValueError: If both the `show` and `movie` flags are set to True or both are set to False.
         """
-        print(title, type(title))
         if not isinstance(title, str):
             raise TypeError("title is not a string")
         if (show and movie) or not (show or movie):
