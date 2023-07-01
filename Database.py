@@ -933,7 +933,7 @@ class YggConnector(ConnectorShowBase):
         return {f"{name}": {"id": id, "seeders": seed} for name, id, seed in
                 zip(torrent_names, target_values, seeders)}, total_result
 
-    def get_value(self,part:str)->tuple:
+    def get_value(self, part: str) -> tuple:
         key, value = "", ""
         while part != "" and part[0] != ":":
             key += part[0]
@@ -944,6 +944,7 @@ class YggConnector(ConnectorShowBase):
             part = part[1:]
         value = value.strip()
         return (key, value)
+
     def get_nfo(self, id_torrent: int):
         time.sleep(0.1)
         response = requests.request('GET', f'https://www3.yggtorrent.do/engine/get_nfo?torrent={id_torrent}')
@@ -971,7 +972,7 @@ class YggConnector(ConnectorShowBase):
                     temp[title][key] = value
         return delete_empty_dictionnaries(result)
 
-    def wanted_title(self, key:str) -> str | bool :
+    def wanted_title(self, key: str) -> str | bool:
         key = remove_non_ascii(key).lower()
         for wanted in YggConnector.wanted_nfo_title:
             wanted_ori = wanted
@@ -979,7 +980,8 @@ class YggConnector(ConnectorShowBase):
             if fuzz.ratio(key, wanted) > 65:
                 return wanted_ori
         return False
-    def wanted_info(self, key:str) -> str | bool :
+
+    def wanted_info(self, key: str) -> str | bool:
         key = remove_non_ascii(key).lower()
         for wanted in YggConnector.wanted_nfo_specification:
             wanted_ori = wanted
@@ -987,6 +989,7 @@ class YggConnector(ConnectorShowBase):
             if fuzz.ratio(key, wanted) > 80:
                 return wanted_ori
         return False
+
     def prepare_nfo(self, nfo_content: str):
         content = bytes(str(nfo_content).replace('b"<pre>', "").replace('\n</pre>"', ""), "utf-8").decode(
             'unicode_escape')
@@ -1083,7 +1086,8 @@ class YggConnector(ConnectorShowBase):
                                                "torrent_id": results[torrent]["id"],
                                                "nfo": self.get_nfo(results[torrent]["id"])})
         self.stored_data["web"] = {**self.stored_data["web"], **feed}
-        json.dump(self.stored_data, open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
+        json.dump(self.stored_data,
+                  open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
         return feed
 
     def scrap_batch(self, anime=False, show=False):
@@ -1119,8 +1123,8 @@ class YggConnector(ConnectorShowBase):
             feed[id][ep.season]["batch"].append({"torrent_title": original_name,
                                                  "link": f"https://www3.yggtorrent.do/rss/download?id={results[torrent]['id']}&passkey={self.pass_key}",
                                                  "seed": results[torrent]['seeders'],
-                                               "torrent_id": results[torrent]["id"],
-                                               "nfo": self.get_nfo(results[torrent]["id"])})
+                                                 "torrent_id": results[torrent]["id"],
+                                                 "nfo": self.get_nfo(results[torrent]["id"])})
         self.stored_data["web"] = {**self.stored_data["web"], **feed}
         json.dump(self.stored_data,
                   open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
@@ -1150,8 +1154,8 @@ class YggConnector(ConnectorShowBase):
             feed[id].append({"torrent_title": original_name,
                              "link": f"https://www3.yggtorrent.do/rss/download?id={results[torrent]['id']}&passkey={self.pass_key}",
                              "seed": results[torrent]['seeders'],
-                            "torrent_id": results[torrent]["id"],
-                            "nfo": self.get_nfo(results[torrent]["id"])})
+                             "torrent_id": results[torrent]["id"],
+                             "nfo": self.get_nfo(results[torrent]["id"])})
         self.stored_data["web"] = {**self.stored_data["web"], **feed}
         json.dump(self.stored_data,
                   open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
@@ -1494,7 +1498,6 @@ class DataBase(Server):
             elif movie:
                 DataBase.movies = dic
             return True
-
 
     def add_file(file: SorterShows | SorterMovie, anime=False, shows=False, movie=False) -> bool:
         """if successful return the new path of the file"""
@@ -1952,6 +1955,7 @@ class DataBase(Server):
 
     def fetch_missing_ep(self):
         list_missing = self.list_missing_episodes()
+        print(list_missing)
         for target in list_missing:
             anime = target == "anime"
             show_status = not anime
@@ -2037,7 +2041,6 @@ class DataBase(Server):
                 except subprocess.CalledProcessError as e:
                     print(e)
                     pass
-
 
     def serve_forever(self):
         conf_list = [(self.to_sort_anime, True, False, False),

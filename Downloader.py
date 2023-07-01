@@ -59,13 +59,15 @@ class Feed(DataBase):
     def sort_feed(self) -> dict:
         dic = {}
         ls = []
+        r = {}
         for feed_list in self.feed_dict:
 
             for feed in self.feed_dict[feed_list]:
+                if feed == "":
+                    continue
                 ls = []
                 feed_link = feed
                 time.sleep(2)  # avoid ban IP
-                r = {}
                 r.clear()
                 feed = feedparser.parse(feed)
                 dic = self.get_ep_with_link(feed, feed_link)

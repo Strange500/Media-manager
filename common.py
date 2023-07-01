@@ -11,6 +11,7 @@ from urllib.parse import urlparse, quote
 import appdirs
 import requests
 import tmdbsimple as tmdb
+from copy import deepcopy
 
 if platform.system() == "Linux":
     import psutil
@@ -45,7 +46,8 @@ os.makedirs(CONF_DIR, exist_ok=True)
 
 
 def delete_empty_dictionnaries(dic: dict) -> dict:
-    for key in dic:
+    temp = deepcopy(dic)
+    for key in temp:
         if dic[key] == {}:
             dic.pop(key)
     return dic
@@ -511,7 +513,10 @@ def check_json(path):
 
 def get_temp():
     if platform.system() == "Linux":
-        return psutil.sensors_temperatures()["k10temp"][0].current
+        try:
+            return psutil.sensors_temperatures()["k10temp"][0].current
+        except:
+            return -1
     else:
         w = wmi.WMI(namespace="root\OpenHardwareMonitor")
         temperature_infos = w.Sensor()
