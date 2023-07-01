@@ -918,7 +918,6 @@ class YggConnector(ConnectorShowBase):
                 results.append(text)
 
             return results
-        print(url)
         response = requests.request('GET', url)
         html = BeautifulSoup(response.content, features="html.parser")
         h2_tags_with_font = [h2_tag for h2_tag in html.find_all("h2") if h2_tag.find("font", style="float: right")]
@@ -1105,7 +1104,6 @@ class YggConnector(ConnectorShowBase):
         for titles in self.alt_titles:
             for url in trusted_source:
                 new_results = self.get_results(url, titles)
-                print(new_results)
                 if new_results is not None:
                     results = {**results, **new_results}
         for torrent in results:
@@ -1184,7 +1182,6 @@ class YggConnector(ConnectorShowBase):
         if choice is None:
             try:
                 if str(self.id) in YggConnector.id_parsed_ep:
-                    print("pass ep")
                     results = self.stored_data["web"]
                 else:
                     results = self.scrap_ep(anime, show)
@@ -1205,7 +1202,6 @@ class YggConnector(ConnectorShowBase):
         choice = None
         if choice is None:
             if str(self.id) in self.id_parsed_batches:
-                print("pass batch")
                 results = self.stored_data["web"]
             else:
                 results = self.scrap_batch(anime, show)
@@ -1958,7 +1954,6 @@ class DataBase(Server):
 
     def fetch_missing_ep(self):
         list_missing = self.list_missing_episodes()
-        print(list_missing)
         for target in list_missing:
             anime = target == "anime"
             show_status = not anime
@@ -1970,7 +1965,7 @@ class DataBase(Server):
                     if info["last_episode_to_air"] is not None:
                         if info["last_episode_to_air"]["season_number"] != int(season) or info["last_episode_to_air"][
                             "episode_number"] == info["seasons"][int(season) - 1]["episode_count"]:
-                            print(f"searching batch sseason {season} for {info['name']}")
+                            print(f"searching batch season {season} for {info['name']}")
                             if self.get_batch(int(season), int(show), anime=anime, show=show):
                                 print(f"Found batch for Season {season} of {info['name']}")
                                 continue
