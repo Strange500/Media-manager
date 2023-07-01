@@ -760,7 +760,7 @@ class ConnectorShowBase(Server):
         self.is_movie = movie
 
         # should add config for connector
-        self.target_title_lang = ["de", "en", "fr", "ja", "ko"]
+        self.target_title_lang = ["de", "en", "fr", "ja", "ko", "DE", "JP", 'EN', 'FR', 'GB', 'gb', 'US']
         self.alt_titles = list(set(self.get_titles(id)))
 
     def get_titles(self, id: int) -> list[str] | None:
@@ -778,8 +778,10 @@ class ConnectorShowBase(Server):
                 if title.get("translations").get("translations", None) is None:
                     raise Exception(f"cannot find all titles for the show {id}")
                 else:
-                    return [t["data"][text] for t in title.get("translations").get("translations") if
-                            t["data"][text] != "" and t["iso_639_1"] in self.target_title_lang]
+                    alt = tmdb.TV(id=title["id"]).alternative_titles()["results"]
+                    alt = [i['title'] for i in alt if i["iso_3166_1"] in self.target_title_lang ]
+                    return [ *[t["data"][text] for t in title.get("translations").get("translations") if
+                            t["data"][text] != "" and t["iso_639_1"] in self.target_title_lang] , *alt]
 
     def parse_conf(self, conf_file_path: str):
         conf = {}
@@ -916,7 +918,7 @@ class YggConnector(ConnectorShowBase):
                 results.append(text)
 
             return results
-
+        print(url)
         response = requests.request('GET', url)
         html = BeautifulSoup(response.content, features="html.parser")
         h2_tags_with_font = [h2_tag for h2_tag in html.find_all("h2") if h2_tag.find("font", style="float: right")]
@@ -1103,6 +1105,7 @@ class YggConnector(ConnectorShowBase):
         for titles in self.alt_titles:
             for url in trusted_source:
                 new_results = self.get_results(url, titles)
+                print(new_results)
                 if new_results is not None:
                     results = {**results, **new_results}
         for torrent in results:
@@ -2076,7 +2079,4 @@ class DataBase(Server):
 
 
 if __name__ == "__main__":
-    y = YggConnector(1726, movie=True)
-    d = DataBase()
-    d.fetch_missing_ep()
     pass
