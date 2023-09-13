@@ -30,12 +30,14 @@ class deployServ():
 
             fetch = None
             while True:
-                if datetime.now().strftime("%H") == "06" and fetch is None:
+                if datetime.now().strftime("%H") == "11" and fetch is None:
                     fetch = threading.Thread(target=self.db.fetch_missing_ep)
                     fetch.start()
                 if len(self.web_api.cpu_temp_list) > 120:
                     self.web_api.cpu_temp_list = []
-                self.web_api.update_cpu_temp()
+                Server.CPU_TEMP = get_temp()
+                self.web_api.cpu_temp_list.append(Server.CPU_TEMP)
+                self.web_api.update_cpu_avg()
                 self.db.fetch_requested_shows(anime=True)
                 self.db.fetch_requested_shows(show=True)
                 time.sleep(30)

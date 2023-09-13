@@ -29,3 +29,5 @@ server.conf
 Qbitorrent.py
 *.iml
 .idea/Media-manager.iml
+*.iml
+.idea/Media-manager.iml

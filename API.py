@@ -1,7 +1,7 @@
-import psutil, platform
 import qbittorrentapi
 from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
+from flask_socketio import SocketIO
 from werkzeug.utils import secure_filename
 if platform.system() == "Windows":
     import pythoncom
@@ -26,6 +26,7 @@ class web_API(Server):
 
         self.app = Flask(__name__)
         self.app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024 * 1024  # 10GB limit
+        self.socketio = SocketIO(self.app, cors_allowed_origins="*")
         CORS(self.app)
 
         @self.app.route("/anime/list")
@@ -94,7 +95,7 @@ class web_API(Server):
             self.update_cpu_avg()
             return jsonify({"value": self.cpu_avg})
 
-        @self.app.route("/torrent/downloading")
+        @self.app.route("/torrent/donwloading")
         def get_downloading_torrent():
             q = qbittorrentapi.Client(**qbit_conn_info)
             torrents_info = {}
@@ -109,7 +110,7 @@ class web_API(Server):
                                        "total_size": total_size,
                                        "percent": progress,
                                        "downloaded": downloaded_size}
-            return jsonify(torrents_info)
+            return torrents_info
 
         @self.app.route("/tmdb/search", methods=['POST'])
         def seach_tmdb_show():
@@ -128,15 +129,12 @@ class web_API(Server):
                     abort(400)
                 if type(request.form.get("id")) == str and request.form.get("id").isnumeric():
                     if request.form.get("choice") == "show":
-                        Server.query_show.append(request.form.get("id"))
                         open(os.path.join(VAR_DIR, QUERY_SHOW), "a").write(request.form.get("id") + "\n")
                         return "ok"
-                    if request.form.get("choice") == "anime":
-                        Server.query_anime.append(request.form.get("id"))
+                    elif request.form.get("choice") == "anime":
                         open(os.path.join(VAR_DIR, QUERY_ANIME), "a").write(request.form.get("id") + "\n")
                         return "ok"
                     elif request.form.get("choice") == "movie":
-                        Server.query_movie.append(request.form.get("id"))
                         open(os.path.join(VAR_DIR, QUERY_MOVIE), "a").write(request.form.get("id") + "\n")
                         return "ok"
                     else:
@@ -165,6 +163,29 @@ class web_API(Server):
 
             return "Téléchargement réussi"
 
+        @self.socketio.on('connect')
+        def handle_connect():
+            print('New client connected ...')
+
+        @self.socketio.on('disconnect')
+        def handle_disconnect():
+            print('Client disconnected.')
+
+        @self.socketio.on('message')
+        def handle_message(data):
+            print(data)
+            if data == "cpu_temp":
+                self.socketio.emit("cpu_temp", json.dumps({"value": Server.CPU_TEMP}))
+            elif data == "cpu_temp_avg":
+                self.socketio.emit("cpu_temp_avg", json.dumps({"value": self.cpu_avg}))
+            elif data == "disk":
+                self.socketio.emit("disk", jsonify(get_total_free_and_used(self.db.movie_dirs)))
+            elif data == "anime_size":
+                self.socketio.emit("anime_size", json.dumps(get_total_free_and_used(self.db.anime_dirs)))
+            elif data == "movie_size":
+                self.socketio.emit("movie_size", json.dumps(get_total_free_and_used(self.db.movie_dirs)))
+            elif data == "show_size":
+                self.socketio.emit("show_size", json.dumps(get_total_free_and_used(self.db.shows_dirs)))
 
         def upload_file(app: Flask):
             file = request.files['file']
@@ -175,11 +196,7 @@ class web_API(Server):
             return 'No file uploaded'
 
     def run(self):
-        self.app.run(host=IP)
-
-    def update_cpu_temp(self):
-        self.cpu_temp_list.append(Server.CPU_TEMP)
-        Server.CPU_TEMP = get_temp()
+        self.socketio.run(host=IP, app=self.app)
 
     def update_cpu_avg(self):
         self.cpu_avg = round(sum(self.cpu_temp_list) / len(self.cpu_temp_list), 2)
