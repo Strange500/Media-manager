@@ -868,6 +868,7 @@ class YggConnector(ConnectorShowBase):
         if not os.path.isfile(self.conf_path):
             with open(self.conf_path, "w") as f:
                 f.write(f"active = FALSE\n")
+                f.write(f"DOMAIN = https://yggtorrent.wtf/\n")
                 f.write(f"pass_key = yourpasskey\n")
                 f.write(f"trusted_sources_rss_anime = PutHereURLForEraiRSSFeed\n")
                 f.write(f"trusted_sources_rss_show = PutHereURLForEraiRSSFeed\n")
@@ -885,15 +886,16 @@ class YggConnector(ConnectorShowBase):
         with open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "r") as f:
             self.stored_data = json.load(f)
         self.conf = self.parse_conf(self.conf_path)
+        self.domain = self.conf["DOMAIN"][0]
         self.pass_key = self.conf["pass_key"][0]
-        self.trusted_sources_rss_anime = self.conf["trusted_sources_rss_anime"]
-        self.trusted_sources_rss_show = self.conf["trusted_sources_rss_show"]
-        self.trusted_sources_rss_movie = self.conf["trusted_sources_rss_movie"]
-        self.trusted_sources_episode_anime = self.conf["trusted_sources_episode_anime"]
-        self.trusted_sources_episode_show = self.conf["trusted_sources_episode_show"]
-        self.trusted_sources_episode_movie = self.conf["trusted_sources_file_movie"]
-        self.trusted_sources_batch_anime = self.conf["trusted_sources_batch_anime"]
-        self.trusted_sources_batch_show = self.conf["trusted_sources_batch_show"]
+        self.trusted_sources_rss_anime = [self.domain + i for i in self.conf["trusted_sources_rss_anime"]]
+        self.trusted_sources_rss_show = [self.domain + i for i in self.conf["trusted_sources_rss_show"]]
+        self.trusted_sources_rss_movie = [self.domain + i for i in self.conf["trusted_sources_rss_movie"]]
+        self.trusted_sources_episode_anime = [self.domain + i for i in self.conf["trusted_sources_episode_anime"]]
+        self.trusted_sources_episode_show = [self.domain + i for i in self.conf["trusted_sources_episode_show"]]
+        self.trusted_sources_episode_movie = [self.domain + i for i in self.conf["trusted_sources_file_movie"]]
+        self.trusted_sources_batch_anime = [self.domain + i for i in self.conf["trusted_sources_batch_anime"]]
+        self.trusted_sources_batch_show = [self.domain + i for i in self.conf["trusted_sources_batch_show"]]
         self.id = id
 
         self.active = self.conf["active"]
@@ -908,6 +910,7 @@ class YggConnector(ConnectorShowBase):
                 seeders = seed_leachers.replace("(S:", "").split("/")[0]
                 size = entry["description"].split(" Taille de l'upload: ")[-1].split(" ")[0]
                 link = [k["href"] for k in entry["links"] if k['rel'] == 'enclosure'][0]
+                link = "/".join(link.split("/")[1:])
                 if os.path.splitext(title)[1] == "":
                     title = title + ".mkv"
                 try:
@@ -991,7 +994,7 @@ class YggConnector(ConnectorShowBase):
 
     def get_nfo(self, id_torrent: int):
         time.sleep(0.1)
-        response = requests.request('GET', f'https://www3.yggtorrent.do/engine/get_nfo?torrent={id_torrent}')
+        response = requests.request('GET', f'{self.domain}engine/get_nfo?torrent={id_torrent}')
         content, result = self.prepare_nfo(str(response.content)), {}
         temp, title = {}, None
         for part in content:
@@ -1128,7 +1131,7 @@ class YggConnector(ConnectorShowBase):
             if feed[id][ep.season].get(ep.ep, None) is None:
                 feed[id][ep.season][ep.ep] = []
             feed[id][ep.season][ep.ep].append({"torrent_title": orignal_name,
-                                               "link": f"https://www3.yggtorrent.do/rss/download?id={results[torrent]['id']}&passkey={self.pass_key}",
+                                               "link": f"rss/download?id={results[torrent]['id']}&passkey={self.pass_key}",
                                                "seeders": results[torrent]["seeders"],
                                                "torrent_id": results[torrent]["id"],
                                                "nfo": self.get_nfo(results[torrent]["id"])})
@@ -1145,6 +1148,7 @@ class YggConnector(ConnectorShowBase):
         trusted_source = None
         if anime:
             trusted_source = self.trusted_sources_batch_anime
+            print(trusted_source)
         elif show:
             trusted_source = self.trusted_sources_batch_show
         for titles in self.alt_titles:
@@ -1168,7 +1172,7 @@ class YggConnector(ConnectorShowBase):
             if feed[id].get(ep.season, None) is None:
                 feed[id][ep.season] = {"batch": []}
             feed[id][ep.season]["batch"].append({"torrent_title": original_name,
-                                                 "link": f"https://www3.yggtorrent.do/rss/download?id={results[torrent]['id']}&passkey={self.pass_key}",
+                                                 "link": f"rss/download?id={results[torrent]['id']}&passkey={self.pass_key}",
                                                  "seed": results[torrent]['seeders'],
                                                  "torrent_id": results[torrent]["id"],
                                                  "nfo": self.get_nfo(results[torrent]["id"])})
@@ -1199,7 +1203,7 @@ class YggConnector(ConnectorShowBase):
             if feed.get(id, None) is None:
                 feed[id] = []
             feed[id].append({"torrent_title": original_name,
-                             "link": f"https://www3.yggtorrent.do/rss/download?id={results[torrent]['id']}&passkey={self.pass_key}",
+                             "link": f"rss/download?id={results[torrent]['id']}&passkey={self.pass_key}",
                              "seed": results[torrent]['seeders'],
                              "torrent_id": results[torrent]["id"],
                              "nfo": self.get_nfo(results[torrent]["id"])})
@@ -1240,6 +1244,8 @@ class YggConnector(ConnectorShowBase):
                 return None
         json.dump(self.stored_data,
                   open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
+        if type(choice) != None:
+            choice["link"] = self.domain + choice["link"]
         return choice
 
     def find_batch(self, season_number: int, anime=False, show=False):
@@ -1247,6 +1253,7 @@ class YggConnector(ConnectorShowBase):
             raise ValueError("You should choose anime or show in function parameter")
         db_results = self.find_from_data_batch(season_number)
         if db_results is not None:
+            db_results[0]["link"] = self.domain + db_results[0]["link"]
             return db_results[0]
         choice = None
         if choice is None:
@@ -1265,7 +1272,8 @@ class YggConnector(ConnectorShowBase):
                 choice = None
         json.dump(self.stored_data,
                   open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
-
+        if choice is not None:
+            choice["link"] = self.domain + choice["link"]
         return choice
 
 
@@ -2138,4 +2146,6 @@ class DataBase(Server):
 
 
 if __name__ == "__main__":
+    y = YggConnector(203737, False)
+    print(y.find_ep(1, 1, anime=True))
     pass

@@ -1,11 +1,12 @@
+import platform
 import qbittorrentapi
 from flask import Flask, jsonify, request, abort
 from flask_cors import CORS
 from flask_socketio import SocketIO
 from werkzeug.utils import secure_filename
+
 if platform.system() == "Windows":
-    import pythoncom
-    import wmi
+    pass
 from Database import *
 
 qbit_conn_info = dict(
