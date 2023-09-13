@@ -1503,7 +1503,7 @@ class DataBase(Server):
         if anime:
             title_info = "name"
             dic, file = deepcopy(DataBase.animes), ANIME_LIB
-        elif anime:
+        elif shows:
             title_info = "name"
             dic, file = deepcopy(DataBase.shows), SHOWS_LIB
         elif movie:
@@ -1537,6 +1537,12 @@ class DataBase(Server):
             if season_dict == {}:
                 dic[identifier].pop("seasons")
                 dic[identifier]["file_info"] = {}
+            if anime:
+                DataBase.animes = deepcopy(dic)
+            elif shows:
+                DataBase.shows = deepcopy(dic)
+            elif movie:
+                DataBase.movies = deepcopy(dic)
             json.dump(dic, open(os.path.join(VAR_DIR, file), "w", encoding="utf-8"), indent=5)
             return True
 
@@ -1823,7 +1829,7 @@ class DataBase(Server):
         if anime:
             dic, file = deepcopy(DataBase.animes), ANIME_LIB
         elif show:
-            dic = deepcopy(DataBase.shows), SHOWS_LIB
+            dic, file = deepcopy(DataBase.shows), SHOWS_LIB
         if dic.get(id) is None:
             return False
         elif dic[id].get(season_number) is None:
@@ -1958,7 +1964,6 @@ class DataBase(Server):
 
     def dl_torrent(self, url: str, name: str, show=False, anime=False, movie=False):
         target_directory = None
-        print(show, anime)
         if anime:
             target_directory = os.path.join(Server.conf['torrent_dir'], "anime")
         elif show:
@@ -2056,10 +2061,10 @@ class DataBase(Server):
             sorter, arg = SorterShows, {"file_reachable": True, "is_anime": True}
             directory = self.to_sort_anime
         elif shows:
-            sorter = SorterShows
+            sorter, arg = SorterShows, {"file_reachable": True}
             directory = self.to_sort_show
         elif movie:
-            sorter = SorterMovie
+            sorter, arg = SorterMovie, {"file_reachable": True}
             directory = self.to_sort_movie
         if type(directory) == str:
             list_file = list_all_files(directory)
@@ -2072,6 +2077,7 @@ class DataBase(Server):
                 try:
                     s = sorter(file, **arg)
                     if self.add(s.title, anime, shows, movie):
+                        print(s)
                         DataBase.add_file(s, anime, shows, movie)
                     else:
                         print("warnings")
@@ -2084,8 +2090,10 @@ class DataBase(Server):
                 except subprocess.CalledProcessError as e:
                     print(e)
                     pass
-                except ValueError as e:
-                    log(e, warning=True)
+                except ValueError as e :
+                    print(e)
+                    pass
+
 
     def serve_forever(self):
         conf_list = [(self.to_sort_anime, True, False, False),
