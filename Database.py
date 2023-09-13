@@ -1,5 +1,7 @@
 import os.path
 import subprocess
+import time
+
 from bs4 import BeautifulSoup
 import feedparser, re
 from fuzzywuzzy import fuzz
@@ -953,8 +955,11 @@ class YggConnector(ConnectorShowBase):
                 results.append(text)
 
             return results
-
-        response = requests.request('GET', url)
+        try:
+            response = requests.request('GET', url)
+        except requests.exceptions.ConnectionError:
+            time.sleep(5)
+            self.parse_page(url)
         html = BeautifulSoup(response.content, features="html.parser")
         h2_tags_with_font = [h2_tag for h2_tag in html.find_all("h2") if h2_tag.find("font", style="float: right")]
         if len(h2_tags_with_font) == 0:
