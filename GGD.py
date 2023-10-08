@@ -59,6 +59,7 @@ class Gg_drive():
                     pass
             compteur_file += 1
             Server.TASK_GGD_SCAN = round((compteur_file / total_file) * 100, 2)
+            json.dump(Gg_drive.dict_ep, open(os.path.join(VAR_DIR, GGD_LIB), "w", encoding="utf-8"), indent=5)
         json.dump(Gg_drive.dict_ep, open(os.path.join(VAR_DIR, GGD_LIB), "w", encoding="utf-8"), indent=5)
         return dictionary_episode
 

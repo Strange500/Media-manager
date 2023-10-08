@@ -23,7 +23,7 @@ class web_API(Server):
         super().__init__()
         self.db = db
         self.cpu_avg = 0
-        self.cpu_temp_list = []
+        self.cpu_temp_list = [0]
 
         self.app = Flask(__name__)
         self.app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024 * 1024  # 10GB limit
@@ -197,7 +197,7 @@ class web_API(Server):
             return 'No file uploaded'
 
     def run(self):
-        self.socketio.run(host=IP, app=self.app)
+        self.socketio.run(host=IP, app=self.app, allow_unsafe_werkzeug=True)
 
     def update_cpu_avg(self):
         self.cpu_avg = round(sum(self.cpu_temp_list) / len(self.cpu_temp_list), 2)

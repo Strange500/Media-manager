@@ -2110,6 +2110,9 @@ class DataBase(Server):
                 except ValueError as e :
                     print(e)
                     pass
+                except IndexError as e :
+                    print(e)
+                    pass
 
 
     def serve_forever(self):
