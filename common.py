@@ -41,6 +41,9 @@ GGD_LIB = os.path.join("data", "ggd_lib.json")
 list_language = ["french"]
 SUB_LIST = {"VOSTFR": "fre", "OmdU": "ger"}
 
+
+
+
 os.makedirs(VAR_DIR, exist_ok=True)
 os.makedirs(CONF_DIR, exist_ok=True)
 
@@ -706,6 +709,8 @@ class Server():
         if not isinstance(info, dict):
             raise TypeError(f"info is not a dictionary: {info}")
         Server.tmdb_db[title] = info
+        json.dump(Server.tmdb_db, open(os.path.join(VAR_DIR, TMDB_DB), "w", encoding="utf-8"), indent=5)
+
 
     def add_tmdb_title(determined_title: str, tmdb_title: str):
         """Adds a TMDB title mapping to the TMDB title database.
@@ -750,7 +755,7 @@ class Server():
             return Server.tmdb_db.get(determined_title, None).get("title", None)
         return Server.tmdb_db.get(determined_title, None).get("name", None)
 
-    def store_tmdb_info(self, id: int, show=False, movie=False):
+    def store_tmdb_info(self, id: int, show=False, anime=True, movie=False):
         """Stores TMDB information for a given ID in the TMDB database.
 
         This method retrieves information from TMDB for a specified ID and stores it in the TMDB database (`tmdb_db`)
@@ -770,7 +775,7 @@ class Server():
         """
         if not isinstance(id, int):
             raise TypeError(f"id is not an integer: {id}")
-        if (show and movie) or not (show or movie):
+        if ((show or anime) and movie) or not (show or movie or anime):
             raise ValueError("You have to specify either show or movie")
         if show:
             s = tmdb.TV(id)
@@ -780,6 +785,13 @@ class Server():
             s = tmdb.Movies(id)
             info = s.info(append_to_response="translations")
             t = "title"
+        elif anime:
+            s = tmdb.TV(id)
+            info = s.info(append_to_response="seasons,translations")
+            t = "name"
+            seasons = self.make_anime_seasons(info["id"])
+            if seasons is not None:
+                info["seasons"] = seasons
         else:
             raise ValueError("You have to specify either show or movie")
         if compare_dictionaries(info, {}):
@@ -797,7 +809,7 @@ class Server():
             info = self.store_tmdb_info(id, show=show, movie=movie)
             return info
 
-    def get_tmdb_info(self, title: str, show=False, movie=False):
+    def get_tmdb_info(self, title: str, show=False, anime=False, movie=False):
         """Retrieves the TMDB information for a given title from the TMDB database.
 
         This method retrieves the TMDB information associated with a given title from the TMDB database (`tmdb_db`).
@@ -826,22 +838,57 @@ class Server():
         """
         if not isinstance(title, str):
             raise TypeError("title is not a string")
-        if (show and movie) or not (show or movie):
+        if ((show or anime) and movie) or not ((show or anime) or movie):
             raise ValueError("You have to specify either show or movie")
         info = Server.tmdb_db.get(title, None)
+        
         if info is not None:
+            if anime:
+                self.store_tmdb_info(info["id"], show=False, anime=True, movie=False)
+                info = Server.tmdb_db.get(title, None)
+                return info
             if show:
                 if info.get("seasons", None) is None:
                     self.store_tmdb_info(info["id"], show=True, movie=False)
                     info = Server.tmdb_db.get(title, None)
-                    print(Server.tmdb_db)
                 return info
             if movie:
                 return info
         else:
-            info = self.get_tmdb_title(title, show=show, movie=movie)
-            print(info)
+            id = self.search.tv(query=title)
+            id = self.search.results[0]["id"]
+            info = self.store_tmdb_info(id, show=show, movie=movie)
             return info
+    def make_anime_seasons(self, id:int):
+        episode_group_id = [i for i in tmdb.TV(id).episode_groups()["results"] if i["name"] == "Seasons"]
+        if episode_group_id == []:
+            return None
+        episode_group_id = episode_group_id[0]["id"]
+        new_dic = {"seasons" : []}
+        info = tmdb.TV_Episode_Groups(id=episode_group_id).info()['groups']
+        from pprint import pprint
+        for seasons in range(len(info)):
+            air_date = info[seasons]['episodes'][0]["air_date"]
+            episode_count = len(info[seasons]['episodes'])
+            id = 0
+            name = info[seasons]["name"]
+            overview = ""
+            poster_path = ""
+            season_number = info[seasons]["order"]
+            vote_average = 0
+            new_dic["seasons"].append( {
+                        "air_date": air_date,
+                        "episode_count": episode_count,
+                        "id": id,
+                        "name": name,
+                        "overview": "",
+                        "poster_path": poster_path,
+                        "season_number": season_number,
+                        "vote_average": vote_average
+                })
+        return new_dic["seasons"]
+        
+
 
     def find_tmdb_title(self, title: str, anime=False, shows=False, movie=False) -> str | bool:
         """Finds the TMDB title for a given title and stores it in the TMDB database if not already present. Also using this function add all related information tmdb_db
@@ -932,3 +979,8 @@ class Server():
         if file is not None and text is not None:
             with open(os.path.join(VAR_DIR, file), "w") as f:
                 f.write(text)
+
+
+    
+
+
