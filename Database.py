@@ -1522,12 +1522,13 @@ class DataBase(Server):
             dic, file = deepcopy(DataBase.movies), MOVIES_LIB
         else:
             raise ValueError("You have to choose between anime|shows|movie")
-        info = super().get_tmdb_info(tmdb_title, show=(shows or anime), movie=movie)
+        info = super().get_tmdb_info(tmdb_title, show=shows, anime=anime, movie=movie)
         if info is None:
             return False
         path = os.path.join(self.get_dir_freer(anime, shows, movie), forbidden_car(info[title_info]))
         os.makedirs(path, exist_ok=True)
         season_dict = {}
+        from pprint import pprint
         if anime or shows:
             for season in info["seasons"]:
                 season_path = os.path.join(path, f"Season {str(season['season_number']).zfill(2)}")
@@ -2110,9 +2111,9 @@ class DataBase(Server):
                 except ValueError as e :
                     print(e)
                     pass
-                except IndexError as e :
-                    print(e)
-                    pass
+                # except IndexError as e :
+                #     print(e)
+                #     pass
 
 
     def serve_forever(self):
