@@ -61,16 +61,6 @@ def delete_empty_dictionnaries(dic: dict)->dict:
             temp.pop(key)
     return temp
 
-def get_tmdb_alternative_seasons(id : int):
-    url = f"https://api.themoviedb.org/3/tv/{id}/episode_groups"
-    print(url)
-
-    headers = {"accept": "application/json",
-               "Authorization": "Bearer eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiI5MWQzNGIzNzUyNmQ1NGNmZDNkNmZjYzVjNTBkMGIzMSIsInN1YiI6IjYxZWRjZWZlYzVhZGE1MDA0NGRjOTBiMiIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.k3TF-56CO4txvnVxuvPTJtyoRykNfl0l9CKZ_48uNzY"}
-
-    response = requests.get(url, headers=headers)
-
-    pprint([i for i in json.loads(response.text)["results"] if i["name"] == "Seasons"][0])
 
 def remove_non_ascii(chaine):
     chaine_encodee = chaine.encode('ascii', 'ignore')
