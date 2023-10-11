@@ -41,9 +41,7 @@ GGD_LIB = os.path.join("data", "ggd_lib.json")
 list_language = ["french"]
 SUB_LIST = {"VOSTFR": "fre", "OmdU": "ger"}
 
-### BETA ###
-from AnilistPython import Anilist
-ANILIST_API_KEY="7eJLT5iVcCKRw5mo0iYoLg68lfdgw3zSOkEHXKGk"
+
 
 
 os.makedirs(VAR_DIR, exist_ok=True)
@@ -996,39 +994,4 @@ class Server():
 
     
 
-if __name__ == "__main__":
-    s = Server(True)
-    from pprint import pprint
-    pprint(s.store_tmdb_info(id=95479, anime=True))
-    # info = s.search.tv(query="Jujutsu Kaisen")
-    # id = s.search.results[0]["id"]
-    # from pprint import pprint
-    
-    # episode_group_id = [i for i in tmdb.TV(id).episode_groups()["results"] if i["name"] == "Seasons"][0]["id"]
-    
-    # #pprint({i['order']:i["episodes"] for i in tmdb.TV_Episode_Groups(id=episode_group_id).info()['groups']})
-    # new_dic = {"seasons" : []}
-    # info = tmdb.TV_Episode_Groups(id=episode_group_id).info()['groups']
-    # for seasons in [i['order'] for i in info]:
-    #     air_date = info[seasons]['episodes'][0]["air_date"]
-    #     episode_count = len(info[seasons]['episodes'])
-    #     id = 0
-    #     name = info[seasons]["name"]
-    #     overview = ""
-    #     poster_path = ""
-    #     season_number = info[seasons]["order"]
-    #     vote_average = 0
-    #     new_dic["seasons"].append( {
-    #                 "air_date": air_date,
-    #                 "episode_count": episode_count,
-    #                 "id": id,
-    #                 "name": name,
-    #                 "overview": "",
-    #                 "poster_path": poster_path,
-    #                 "season_number": season_number,
-    #                 "vote_average": vote_average
-    #            })
-        
-    # pprint(new_dic)
-    #pprint(tmdb.TV_Episode_Groups(id=episode_group_id).info()['groups'])
 
