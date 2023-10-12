@@ -1148,7 +1148,6 @@ class YggConnector(ConnectorShowBase):
         trusted_source = None
         if anime:
             trusted_source = self.trusted_sources_batch_anime
-            print(trusted_source)
         elif show:
             trusted_source = self.trusted_sources_batch_show
         for titles in self.alt_titles:
@@ -1527,7 +1526,6 @@ class DataBase(Server):
         path = os.path.join(self.get_dir_freer(anime, shows, movie), forbidden_car(info[title_info]))
         os.makedirs(path, exist_ok=True)
         season_dict = {}
-        from pprint import pprint
         if anime or shows:
             for season in info["seasons"]:
                 season_path = os.path.join(path, f"Season {str(season['season_number']).zfill(2)}")
@@ -2116,9 +2114,9 @@ class DataBase(Server):
                 except ValueError as e :
                     print(e)
                     pass
-                # except IndexError as e :
-                #     print(e)
-                #     pass
+                except IndexError as e :
+                    print(e)
+                    pass
 
 
     def serve_forever(self):
@@ -2216,13 +2214,11 @@ class DataBase(Server):
                     compteur+=1
                 max_free = [i for i in dic if dic[i]["free_space"] == max([dic[k]["free_space"] for k in dic])][0]
 
-        print(dic_id_dst)
         for ids in dic_id_dst:
             if ids is not None:
                 self.move_media(int(ids), dic_id_dst[ids], anime, show, movie)
             
     def balance_media(self):
-        from pprint import pprint
         dic_media_size = {}
         total_size = 0
         temp = self.anime_dirs
@@ -2235,7 +2231,6 @@ class DataBase(Server):
                 path = os.path.join(dirs, directory)
                 size = get_dir_size(path)
                 dic_media_size[dirs][path] = [size, self.find_id_by_path(path, anime=True)]
-        pprint(dic_media_size)
         self.adjust_directories(dic_media_size, anime=True)
         temp = self.shows_dirs
         if isinstance(self.shows_dirs, str):
@@ -2247,7 +2242,6 @@ class DataBase(Server):
                 path = os.path.join(dirs, directory)
                 size = get_dir_size(path)
                 dic_media_size[dirs][path] = [size, self.find_id_by_path(path, show=True)]
-        pprint(dic_media_size)
         self.adjust_directories(dic_media_size, show=True)
         dic_media_size.clear()
         temp = self.movie_dirs
@@ -2259,7 +2253,6 @@ class DataBase(Server):
                 path = os.path.join(dirs, directory)
                 size = get_dir_size(path)
                 dic_media_size[dirs][path] = [size, self.find_id_by_path(path, movie=True)]
-        pprint(dic_media_size)
         self.adjust_directories(dic_media_size, movie=True)
 
                 
