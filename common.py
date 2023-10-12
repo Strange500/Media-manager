@@ -707,7 +707,6 @@ class Server():
         tmdb.API_KEY = Server.conf["TMDB_API_KEY"]
         tmdb.REQUESTS_TIMEOUT = 10
         self.search = tmdb.Search()
-        self.anime_search = Anilist(cid=9800, csecret=ANILIST_API_KEY)
 
     def check_system_files(self):
         """Checks the system files and ensures their existence or creates them if missing.
