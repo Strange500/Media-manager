@@ -47,6 +47,15 @@ SUB_LIST = {"VOSTFR": "fre", "OmdU": "ger"}
 os.makedirs(VAR_DIR, exist_ok=True)
 os.makedirs(CONF_DIR, exist_ok=True)
 
+def get_dir_size(path="."):
+    total = 0
+    with os.scandir(path) as dir:
+        for entry in dir:
+            if entry.is_file():
+                total += entry.stat().st_size
+            elif entry.is_dir():
+                total += get_dir_size(entry.path)
+    return total
 def convert_str_to_int(string:str)->int:
     temp = ""
     while string != "":
@@ -178,6 +187,39 @@ def safe_move(src, dst, max_retries=2, retry_delay=1):
 
     return False
 
+def safe_move_dir(src, dst, max_retries=2, retry_delay=1):
+    """
+    Safely moves a file from the source to the destination path.
+
+    Args:
+        src (str): The source file path.
+        dst (str): The destination file path.
+        max_retries (int, optional): Maximum number of retries in case of PermissionError or RuntimeError. Defaults to 2.
+        retry_delay (int, optional): Delay in seconds between retries. Defaults to 1.
+
+    Returns:
+        bool: True if the file was successfully moved and removed from the source, False otherwise.
+
+    Raises:
+        FileNotFoundError: If the source file does not exist.
+        ValueError: If the source file is not a video file.
+
+    """
+    if not os.path.isdir(src):
+        raise FileNotFoundError(f"{src} is not a file")
+
+    retries = 0
+    while retries < max_retries:
+        try:
+            print(f"{src} --> {dst}")
+            shutil.move(src, dst)
+            return True
+        except (PermissionError, RuntimeError):
+            retries += 1
+            time.sleep(retry_delay)
+
+    return False
+
 
 def extract_files(source_dir, dest_dir) -> None:
     """
@@ -252,6 +294,7 @@ def get_free_space(path):
     else:
         # Use the Unix-based os.statvfs function to get the free space
         st = os.statvfs(path)
+        print(st)
         # Return the free space in bytes
         return st.f_bavail * st.f_frsize
 
@@ -983,4 +1026,39 @@ class Server():
 
     
 
+if __name__ == "__main__":
+    s = Server(True)
+    paths = ["/home", "/etc"]
+    print(get_path_with_most_free_space(paths))
+    # info = s.search.tv(query="Jujutsu Kaisen")
+    # id = s.search.results[0]["id"]
+    # from pprint import pprint
+    
+    # episode_group_id = [i for i in tmdb.TV(id).episode_groups()["results"] if i["name"] == "Seasons"][0]["id"]
+    
+    # #pprint({i['order']:i["episodes"] for i in tmdb.TV_Episode_Groups(id=episode_group_id).info()['groups']})
+    # new_dic = {"seasons" : []}
+    # info = tmdb.TV_Episode_Groups(id=episode_group_id).info()['groups']
+    # for seasons in [i['order'] for i in info]:
+    #     air_date = info[seasons]['episodes'][0]["air_date"]
+    #     episode_count = len(info[seasons]['episodes'])
+    #     id = 0
+    #     name = info[seasons]["name"]
+    #     overview = ""
+    #     poster_path = ""
+    #     season_number = info[seasons]["order"]
+    #     vote_average = 0
+    #     new_dic["seasons"].append( {
+    #                 "air_date": air_date,
+    #                 "episode_count": episode_count,
+    #                 "id": id,
+    #                 "name": name,
+    #                 "overview": "",
+    #                 "poster_path": poster_path,
+    #                 "season_number": season_number,
+    #                 "vote_average": vote_average
+    #            })
+        
+    # pprint(new_dic)
+    #pprint(tmdb.TV_Episode_Groups(id=episode_group_id).info()['groups'])
 
