@@ -1577,7 +1577,13 @@ class DataBase(Server):
                              os.path.join(season["path"], file.__str__()))
             if ep is None:
                 save_path = DataBase.add_ep_database(file)
-                safe_move(file.path, save_path)
+                try:
+                    safe_move(file.path, save_path)
+                except OSError:
+                    log(f"No more space on {save_path}", error=True)
+                    DataBase().balance_media()
+                    DataBase.add_file(file, anime, shows, movie)
+                    
                 return True
             elif choose_best_version(ep, file) == file:
                 save_path = DataBase.add_ep_database(file)
