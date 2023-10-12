@@ -294,7 +294,6 @@ def get_free_space(path):
     else:
         # Use the Unix-based os.statvfs function to get the free space
         st = os.statvfs(path)
-        print(st)
         # Return the free space in bytes
         return st.f_bavail * st.f_frsize
 
@@ -909,7 +908,6 @@ class Server():
         episode_group_id = episode_group_id[0]["id"]
         new_dic = {"seasons" : []}
         info = tmdb.TV_Episode_Groups(id=episode_group_id).info()['groups']
-        from pprint import pprint
         for seasons in range(len(info)):
             air_date = info[seasons]['episodes'][0]["air_date"]
             episode_count = len(info[seasons]['episodes'])
