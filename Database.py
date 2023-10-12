@@ -1502,7 +1502,6 @@ class DataBase(Server):
         """return the direcotires with the more free space
             choose between anime, shows and movie, it returns only one result at the time"""
         dic, r, dirs, lib = self.var(anime, shows, movie)
-        max, max_dir = 0, ""
         return get_path_with_most_free_space(dirs)
 
     def add(self, title: str, anime=False, shows=False, movie=False) -> bool:
@@ -2144,12 +2143,128 @@ class DataBase(Server):
             else:
                 return True
         return False
+    
+    def move_media(self, id : int, path: str, anime=False, show=False, movie=False) -> bool:
+        if not os.path.isdir(path):
+            return False
+        if (anime or show) and movie:
+            return False
+        if anime:
+            media_info = self.animes.get(str(id), None)
+        if show:
+            media_info = self.shows.get(str(id), None)
+        if movie:
+            media_info = self.movies.get(str(id), None)
+
+        if media_info is None:
+            return False
+        original_path = media_info["path"]
+        media_info["path"] = os.path.join(path, os.path.basename(original_path))
+        log(f"Moving {original_path} --> {path}")
+        safe_move_dir(original_path, path, max_retries=10)
+        if (anime or show):
+            for season in media_info["seasons"]:
+                media_info["seasons"][season]["path"] = str(media_info["seasons"][season]["path"]).replace(original_path, media_info["path"])
+                for episodes in media_info["seasons"][season]["current_episode"]:
+                    media_info["seasons"][season]["current_episode"][episodes]["path"] = str(media_info["seasons"][season]["current_episode"][episodes]["path"]).replace(original_path, media_info["path"])
+        if os.path.isdir(os.path.join(path, os.path.basename(original_path))):
+            if anime:
+                self.animes[str(id)] = media_info
+                json.dump(DataBase.animes, open(os.path.join(VAR_DIR, ANIME_LIB), "w", encoding="utf-8"), indent=5)
+            elif movie:
+                self.movies[str(id)] = media_info
+                json.dump(DataBase.movies, open(os.path.join(VAR_DIR, MOVIES_LIB), "w", encoding="utf-8"), indent=5)
+            elif show:
+                self.shows[str(id)] = media_info
+                json.dump(DataBase.shows, open(os.path.join(VAR_DIR, SHOWS_LIB), "w", encoding="utf-8"), indent=5)
+            return True
+        else:
+            return False 
+        
+    
+    def find_id_by_path(self,path: str, anime=False, show=False, movie=False) -> int | None:
+        if anime:
+            dic = self.animes
+        elif show:
+            dic = self.shows
+        elif movie:
+            dic = self.movies
+        for ids in dic:
+            if dic[ids]["path"] == path:
+                return int(ids)
+        return None
+
+    def adjust_directories(self, dic : dict, anime=False, show=False, movie=False):
+        max_free = [i for i in dic if dic[i]["free_space"] == max([dic[k]["free_space"] for k in dic])][0]
+        dic_id_dst = {}
+        compteur = 0
+        for dirs in dic:
+            if dic[dirs]["free_space"]/dic[max_free]["free_space"] < 0.9:
+                while dic[dirs]["free_space"]/dic[max_free]["free_space"] < 0.9:
+                    if compteur > 25:
+                        break
+                    directory = [i for i in dic[max_free] if i != "free_space" and dic[max_free][i][0] == min([dic[max_free][k][0] for k in dic[max_free] if k != "free_space" ])][0]
+                    min_media_max_free = dic[max_free][directory]
+                    dic[max_free]["free_space"] -= min_media_max_free[0]
+                    dic_id_dst[min_media_max_free[1]] = dirs
+                    compteur+=1
+                max_free = [i for i in dic if dic[i]["free_space"] == max([dic[k]["free_space"] for k in dic])][0]
+
+        print(dic_id_dst)
+        for ids in dic_id_dst:
+            if ids is not None:
+                self.move_media(int(ids), dic_id_dst[ids], anime, show, movie)
+            
+    def balance_media(self):
+        from pprint import pprint
+        dic_media_size = {}
+        total_size = 0
+        temp = self.anime_dirs
+        if isinstance(self.anime_dirs, str):
+            temp = [self.anime_dirs]
+
+        for dirs in temp:
+            dic_media_size[dirs] = {"free_space" : get_free_space(dirs)}
+            for directory in os.listdir(dirs):
+                path = os.path.join(dirs, directory)
+                size = get_dir_size(path)
+                dic_media_size[dirs][path] = [size, self.find_id_by_path(path, anime=True)]
+        pprint(dic_media_size)
+        self.adjust_directories(dic_media_size, anime=True)
+        temp = self.shows_dirs
+        if isinstance(self.shows_dirs, str):
+            temp = [self.shows_dirs]
+        dic_media_size.clear()
+        for dirs in temp:
+            dic_media_size[dirs] = {"free_space" : get_free_space(dirs)}
+            for directory in os.listdir(dirs):
+                path = os.path.join(dirs, directory)
+                size = get_dir_size(path)
+                dic_media_size[dirs][path] = [size, self.find_id_by_path(path, show=True)]
+        pprint(dic_media_size)
+        self.adjust_directories(dic_media_size, show=True)
+        dic_media_size.clear()
+        temp = self.movie_dirs
+        if isinstance(self.movie_dirs, str):
+            temp = [self.movie_dirs]
+        for dirs in temp:
+            dic_media_size[dirs] = {"free_space" : get_free_space(dirs)}
+            for directory in os.listdir(dirs):
+                path = os.path.join(dirs, directory)
+                size = get_dir_size(path)
+                dic_media_size[dirs][path] = [size, self.find_id_by_path(path, movie=True)]
+        pprint(dic_media_size)
+        self.adjust_directories(dic_media_size, movie=True)
+
+                
 
     def save_tmdb_title(self):
         json.dump(Server.tmdb_title, open(os.path.join(VAR_DIR, TMDB_TITLE), "w", encoding="utf-8"), indent=5)
 
 
 if __name__ == "__main__":
-    y = YggConnector(203737, False)
-    print(y.find_ep(1, 1, anime=True))
+    
+    print(get_dir_size("/home/strange/install/shared/media/anime"))
+    d = DataBase()
+    d.balance_media()
     pass
