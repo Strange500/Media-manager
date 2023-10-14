@@ -1154,9 +1154,8 @@ class YggConnector(ConnectorShowBase):
                                                "seeders": results[torrent]["seeders"],
                                                "torrent_id": results[torrent]["id"],
                                                "nfo": self.get_nfo(results[torrent]["id"])})
-        self.stored_data["web"] = {**self.stored_data["web"], **feed}
-        json.dump(self.stored_data,
-                  open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
+            self.stored_data["web"] = {**self.stored_data["web"], **feed}
+            json.dump(self.stored_data, open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
         return feed
 
     def scrap_batch(self, anime=False, show=False):
@@ -1181,7 +1180,7 @@ class YggConnector(ConnectorShowBase):
             if os.path.splitext(torrent)[1] == "":
                 sort_name = torrent + ".mkv"
             try:
-                ep = SorterShows(sort_name, file_reachable=False, is_anime=self.is_anime_by_id(int(self.id)))
+                ep = SorterShows(sort_name, file_reachable=False, anime=anime)
             except ValueError as e:
                 continue
             id = str(ep.id)
@@ -1194,9 +1193,9 @@ class YggConnector(ConnectorShowBase):
                                                  "seed": results[torrent]['seeders'],
                                                  "torrent_id": results[torrent]["id"],
                                                  "nfo": self.get_nfo(results[torrent]["id"])})
-        self.stored_data["web"] = {**self.stored_data["web"], **feed}
-        json.dump(self.stored_data,
-                  open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
+            self.stored_data["web"] = {**self.stored_data["web"], **feed}
+            json.dump(self.stored_data,
+                    open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
         return feed
 
     def scrap_movie(self):
