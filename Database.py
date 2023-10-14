@@ -2287,9 +2287,9 @@ class DataBase(Server):
         ids_to_update = [[self.tmdb_db[i]["id"], i] for i in self.tmdb_db]
         for id in ids_to_update:
             is_movie = False
-            is_anime = [] != [i for i in self.tmdb_db[id[1]]["genres"] if self.tmdb_db[id[1]]["genres"][i]["name"] == "Animation" and self.tmdb_db[id[1]].get("seasons", None) is not None]
+            is_anime = [] != [i for i in self.tmdb_db[id[1]]["genres"] if i["name"] == "Animation" and self.tmdb_db[id[1]].get("seasons", None) is not None]
             if not is_anime:
-                is_movie = self.tmdb_db[id[1]].get("seasons", None) is not None
+                is_movie = self.tmdb_db[id[1]].get("seasons", None) is None
             self.store_tmdb_info(id[0], show=(not is_anime), anime=is_anime, movie=is_movie)
             
     def save_tmdb_title(self):
