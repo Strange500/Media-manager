@@ -859,6 +859,22 @@ class ConnectorShowBase(Server):
 class YggConnector(ConnectorShowBase):
     id_parsed_ep = []
     id_parsed_batches = []
+    connector_name = "YggTorrent.conf"
+    stored_data_file = "yggdata.json"
+    conf_path = os.path.join(ConnectorShowBase.connector_conf_dir, connector_name)
+    if not os.path.isfile(conf_path):
+        with open(conf_path, "w") as f:
+            f.write(f"active = FALSE\n")
+            f.write(f"DOMAIN = https://yggtorrent.wtf/\n")
+            f.write(f"pass_key = yourpasskey\n")
+            f.write(f"trusted_sources_rss_anime = PutHereURLForEraiRSSFeed\n")
+            f.write(f"trusted_sources_rss_show = PutHereURLForEraiRSSFeed\n")
+            f.write(f"trusted_sources_rss_movie = PutHereURLForEraiRSSFeed\n")
+            f.write(f"trusted_sources_episode_anime = putherethesearchpageforyggtorrent\n")
+            f.write(f"trusted_sources_episode_show = putherethesearchpageforyggtorrent\n")
+            f.write(f"trusted_sources_file_movie = putherethesearchpageforyggtorrent\n")
+            f.write(f'trusted_sources_batch_anime = anime_batch_urls\n')
+            f.write(f'trusted_sources_batch_show = anime_batch_urls\n')
 
     def __init__(self, id: int, movie=False):
         super().__init__(id, movie=movie)
@@ -1277,6 +1293,14 @@ class YggConnector(ConnectorShowBase):
 
 
 class NyaaConnector(ConnectorShowBase):
+
+    connector_name = "Nyaa.conf"
+    conf_path = os.path.join(ConnectorShowBase.connector_conf_dir, connector_name)
+    if not os.path.isfile(conf_path):
+        with open(conf_path, "w") as f:
+            f.write(f"active = FALSE\n")
+            f.write(f"trusted_sources_rss_url = PutHereURLForNyaaRSSFeed\n")
+            f.write(f"words = write words specific to nyaa search engine\n")
 
     def __init__(self, id: int):
         super().__init__(id)
