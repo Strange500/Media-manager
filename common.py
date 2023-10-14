@@ -753,6 +753,9 @@ class Server():
         Server.tmdb_db[title] = info
         json.dump(Server.tmdb_db, open(os.path.join(VAR_DIR, TMDB_DB), "w", encoding="utf-8"), indent=5)
 
+    def is_anime_by_id(self, id: int ) -> bool:
+        return [] != [i for i in self.tmdb_db[id[1]]["genres"] if i["name"] == "Animation" and self.tmdb_db[id[1]].get("seasons", None) is not None]
+
 
     def add_tmdb_title(determined_title: str, tmdb_title: str):
         """Adds a TMDB title mapping to the TMDB title database.
@@ -841,7 +844,7 @@ class Server():
         self.update_tmdb_db(info[t], info)
         return info
 
-    def get_tmdb_info_by_id(self, id: int, show: int | None = False, movie: bool | None = False):
+    def get_tmdb_info_by_id(self, id: int, anime: int | None = False,show: int | None = False, movie: bool | None = False):
         if not isinstance(id, int):
             raise TypeError(f"id should be int not {type(id)}")
         else:
