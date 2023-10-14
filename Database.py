@@ -2283,7 +2283,15 @@ class DataBase(Server):
         self.adjust_directories(dic_media_size, movie=True)
 
                 
-
+    def update_tmdb(self):
+        ids_to_update = [[self.tmdb_db[i]["id"], i] for i in self.tmdb_db]
+        for id in ids_to_update:
+            is_movie = False
+            is_anime = [] != [i for i in self.tmdb_db[id[1]]["genres"] if self.tmdb_db[id[1]]["genres"][i]["name"] == "Animation" and self.tmdb_db[id[1]].get("seasons", None) is not None]
+            if not is_anime:
+                is_movie = self.tmdb_db[id[1]].get("seasons", None) is not None
+            self.store_tmdb_info(id[0], show=(not is_anime), anime=is_anime, movie=is_movie)
+            
     def save_tmdb_title(self):
         json.dump(Server.tmdb_title, open(os.path.join(VAR_DIR, TMDB_TITLE), "w", encoding="utf-8"), indent=5)
 
