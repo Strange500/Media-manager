@@ -162,7 +162,7 @@ class SorterShows(SorterCommon):
         self.season = self.determine_season()
         self.original_title = self.determine_title()
         self.title = self.original_title
-        temp = super().find_tmdb_title(self.title, shows=True)
+        temp = super().find_tmdb_title(self.title, anime=is_anime, shows=(not is_anime))
         if not temp:
             raise ValueError(f"{file_path}, cannot determine the show")
         if is_anime:
@@ -933,7 +933,7 @@ class YggConnector(ConnectorShowBase):
                 if os.path.splitext(title)[1] == "":
                     title = title + ".mkv"
                 try:
-                    episode = SorterShows(title, file_reachable=False, is_anime=False)
+                    episode = SorterShows(title, file_reachable=False, is_anime=self.is_anime_by_id(int(id)))
                     if rss_feed.get(str(episode.id), None) is None:
                         rss_feed[str(episode.id)] = {}
                     if rss_feed[str(episode.id)].get(episode.season, None) is None:
@@ -1139,7 +1139,7 @@ class YggConnector(ConnectorShowBase):
             if os.path.splitext(torrent)[1] == "":
                 sort_name = torrent + ".mkv"
             try:
-                ep = SorterShows(sort_name, file_reachable=False)
+                ep = SorterShows(sort_name, file_reachable=False, is_anime=self.is_anime_by_id(int(self.id)))
             except ValueError as e:
                 continue
             id = str(ep.id)
@@ -1181,7 +1181,7 @@ class YggConnector(ConnectorShowBase):
             if os.path.splitext(torrent)[1] == "":
                 sort_name = torrent + ".mkv"
             try:
-                ep = SorterShows(sort_name, file_reachable=False)
+                ep = SorterShows(sort_name, file_reachable=False, is_anime=self.is_anime_by_id(int(self.id)))
             except ValueError as e:
                 continue
             id = str(ep.id)
@@ -1497,7 +1497,7 @@ class DataBase(Server):
 
         if not tmdb_title:
             return False
-        info = serv.get_tmdb_info(tmdb_title, show=(anime or shows), movie=movie)
+        info = serv.get_tmdb_info(tmdb_title, anime=anime, show=shows, movie=movie)
         if info is None:
             return False
 
