@@ -558,7 +558,7 @@ class Show(Server):
             Exception: If the update of the TMDB database fails.
         """
         try:
-            super().update_tmdb_db(self.title, tmdb.TV(self.id).info(append_to_response="seasons"))
+            self.store_tmdb_info(self.id, show=self.is_show, anime=not self.is_show)
         except Exception:
             raise Exception("Failed to update TMDB database for the show.")
 
