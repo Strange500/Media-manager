@@ -754,7 +754,11 @@ class Server():
         json.dump(Server.tmdb_db, open(os.path.join(VAR_DIR, TMDB_DB), "w", encoding="utf-8"), indent=5)
 
     def is_anime_by_id(self, id: int ) -> bool:
-        return [] != [i for i in self.tmdb_db[id[1]]["genres"] if i["name"] == "Animation" and self.tmdb_db[id[1]].get("seasons", None) is not None]
+        try:
+            title = [i for i in self.tmdb_db if self.tmdb_db[i]["id"] == id][0]
+        except IndexError:
+             return False
+        return [] != [i for i in self.tmdb_db[title]["genres"] if i["name"] == "Animation" and self.tmdb_db[title].get("seasons", None) is not None]
 
 
     def add_tmdb_title(determined_title: str, tmdb_title: str):
@@ -851,7 +855,7 @@ class Server():
             for keys in Server.tmdb_db:
                 if Server.tmdb_db[keys]["id"] == id:
                     return Server.tmdb_db[keys]
-            info = self.store_tmdb_info(id, show=show, movie=movie)
+            info = self.store_tmdb_info(id, anime=anime, show=show, movie=movie)
             return info
 
     def get_tmdb_info(self, title: str, show=False, anime=False, movie=False):
@@ -902,7 +906,7 @@ class Server():
         else:
             id = self.search.tv(query=title)
             id = self.search.results[0]["id"]
-            info = self.store_tmdb_info(id, show=show, movie=movie)
+            info = self.store_tmdb_info(id,anime=anime, show=show, movie=movie)
             return info
     def make_anime_seasons(self, id:int):
         episode_group_id = [i for i in tmdb.TV(id).episode_groups()["results"] if i["name"] == "Seasons"]
@@ -967,7 +971,7 @@ class Server():
             self.search.movie(query=title)
             t = "title"
         try:
-            self.store_tmdb_info(self.search.results[0]["id"], show=(shows or anime), movie=movie)
+            self.store_tmdb_info(self.search.results[0]["id"], anime=anime, show=shows, movie=movie)
             Server.add_tmdb_title(title, self.search.results[0][t])
             return self.search.results[0][t]
         except IndexError:
