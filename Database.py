@@ -933,7 +933,7 @@ class YggConnector(ConnectorShowBase):
                 if os.path.splitext(title)[1] == "":
                     title = title + ".mkv"
                 try:
-                    episode = SorterShows(title, file_reachable=False, is_anime=self.is_anime_by_id(int(id)))
+                    episode = SorterShows(title, file_reachable=False, is_anime=self.is_anime_by_id(int(self.id)))
                     if rss_feed.get(str(episode.id), None) is None:
                         rss_feed[str(episode.id)] = {}
                     if rss_feed[str(episode.id)].get(episode.season, None) is None:
