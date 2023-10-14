@@ -163,7 +163,7 @@ class Feed(DataBase):
         while True:
             self.sort_feed()
             self.dl_torrent()
-            time.sleep(600)
+            time.sleep(300)
 
 if __name__ == '__main__':
     d = Feed()
