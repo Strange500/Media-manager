@@ -2141,7 +2141,10 @@ class DataBase(Server):
         if elt == False:
             return False
         elif not movie:
-            ep = elt.seasons_created[file.season]["current_episode"].get(file.ep, None)
+            if elt.seasons_created.get(file.season, None) is None:
+                return False
+            else:
+                ep = elt.seasons_created[file.season]["current_episode"].get(file.ep, None)
             if ep is None:
                 return False
             else:
