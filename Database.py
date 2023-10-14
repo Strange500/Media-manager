@@ -768,7 +768,8 @@ class ConnectorShowBase(Server):
         self.alt_titles = list(set(self.get_titles(id)))
 
     def get_titles(self, id: int) -> list[str] | None:
-        title = self.get_tmdb_info_by_id(id, show=(not self.is_movie), movie=self.is_movie)
+        is_anime = self.is_anime_by_id(id)
+        title = self.get_tmdb_info_by_id(id, anime=is_anime, show=(not self.is_movie and not is_anime), movie=self.is_movie)
         if self.is_movie:
             text = "title"
         else:
@@ -786,6 +787,8 @@ class ConnectorShowBase(Server):
                     alt = [i['title'] for i in alt if i["iso_3166_1"] in self.target_title_lang ]
                     return [ *[t["data"][text] for t in title.get("translations").get("translations") if
                             t["data"][text] != "" and t["iso_639_1"] in self.target_title_lang] , *alt]
+    
+    
 
     def parse_conf(self, conf_file_path: str):
         conf = {}
@@ -1961,7 +1964,7 @@ class DataBase(Server):
                               show=False) -> dict | None:
         if not (anime or show):
             raise ValueError("You should choose anime or show in function parameter")
-        show_info = self.get_tmdb_info_by_id(anime_id, show=True, movie=False)
+        show_info = self.get_tmdb_info_by_id(anime_id, anime=anime, show=show, movie=False)
         seasons = show_info["seasons"]
         season = [s for s in seasons if s["season_number"] == season_number]
         if not season:
@@ -1989,7 +1992,7 @@ class DataBase(Server):
     def search_season_source(self, show_id: int, season_number: int, anime=False, show=False) -> dict | None:
         if not (anime or show):
             raise ValueError("You should choose anime or show in function parameter")
-        anime = self.get_tmdb_info_by_id(show_id, show=True, movie=False)
+        anime = self.get_tmdb_info_by_id(show_id, anime=anime, show=(not anime), movie=False)
         seasons = anime["seasons"]
         season = [s for s in seasons if s["season_number"] == season_number]
         if season == []:
@@ -2053,7 +2056,7 @@ class DataBase(Server):
             anime = target == "anime"
             show_status = not anime
             for show in list_missing[target]:
-                info = self.get_tmdb_info_by_id(int(show), show=True)
+                info = self.get_tmdb_info_by_id(int(show), anime=anime, show=show_status)
                 if info is None:
                     continue
                 for season in list_missing[target][show]:
@@ -2080,7 +2083,7 @@ class DataBase(Server):
         if list_missing == ['']:
             return
         for show in list_missing:
-            info = self.get_tmdb_info_by_id(int(show), show=True)
+            info = self.get_tmdb_info_by_id(int(show), anime=anime, show=show)
             if info is None or DataBase.find(info["name"], anime=True) or DataBase.find(info["name"], shows=True):
                 continue
             for season in info["seasons"]:
