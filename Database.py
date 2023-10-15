@@ -1264,8 +1264,11 @@ class YggConnector(ConnectorShowBase):
                 return None
         json.dump(self.stored_data,
                   open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
-        if type(choice) != None:
-            choice["link"] = self.domain + choice["link"]
+        if type(choice) is not None:
+            try:
+                choice["link"] = self.domain + choice["link"]
+            except TypeError:
+                return None
         return choice
 
     def find_batch(self, season_number: int, anime=False, show=False):
