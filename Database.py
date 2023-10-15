@@ -1180,7 +1180,7 @@ class YggConnector(ConnectorShowBase):
             if os.path.splitext(torrent)[1] == "":
                 sort_name = torrent + ".mkv"
             try:
-                ep = SorterShows(sort_name, file_reachable=False, is_anime=anime)
+                ep = SorterShows(sort_name, file_reachable=False, anime=anime)
             except ValueError as e:
                 continue
             id = str(ep.id)
@@ -2035,7 +2035,7 @@ class DataBase(Server):
             if episode is None:
                 continue
             find = True
-            self.dl_torrent(episode["link"], episode["torrent_title"], anime, show, movie=False)
+            self.dl_torrent(episode["link"], episode["torrent_title"], anime=anime, show=show, movie=False)
         return find
 
     def get_batch(self, season: int, identifier: int, anime=False, show=False) -> bool:
@@ -2045,7 +2045,7 @@ class DataBase(Server):
         batch = self.search_season_source(int(identifier), int(season), anime=anime, show=show)
         if batch is not None:
             find = True
-            self.dl_torrent(batch["link"], batch["torrent_title"], anime, show, movie=False)
+            self.dl_torrent(batch["link"], batch["torrent_title"], anime=anime, show=show, movie=False)
 
         return find
 
@@ -2302,5 +2302,5 @@ if __name__ == "__main__":
     
     print(get_dir_size("/home/strange/install/shared/media/anime"))
     d = DataBase()
-    d.balance_media()
+    d.fetch_missing_ep()
     pass
