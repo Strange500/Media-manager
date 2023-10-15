@@ -1180,7 +1180,7 @@ class YggConnector(ConnectorShowBase):
             if os.path.splitext(torrent)[1] == "":
                 sort_name = torrent + ".mkv"
             try:
-                ep = SorterShows(sort_name, file_reachable=False, anime=anime)
+                ep = SorterShows(sort_name, file_reachable=False, is_anime=anime)
             except ValueError as e:
                 continue
             id = str(ep.id)
