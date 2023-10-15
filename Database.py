@@ -854,9 +854,12 @@ class ConnectorShowBase(Server):
 
     def extract_better_version(self, results) -> dict | None:
         sorted_result = deepcopy(self.prepare_dict_sort(results))
-        choice = None
         sorted_result = sorted(sorted_result, key=itemgetter('width', 'largeur'), reverse=True)
-        return [i for i in results if i["torrent_id"] == sorted_result[0]['id']][0]
+        try:
+            results = [i for i in results if i["torrent_id"] == sorted_result[0]['id']][0]
+        except IndexError:
+            return None
+        return results
 
 
 class YggConnector(ConnectorShowBase):
