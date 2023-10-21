@@ -166,15 +166,15 @@ class web_API(Server):
 
         @self.socketio.on('connect')
         def handle_connect():
-            print('New client connected ...')
+            log('New client connected ...', debug=True)
 
         @self.socketio.on('disconnect')
         def handle_disconnect():
-            print('Client disconnected.')
+            log('Client disconnected.', debug=True)
 
         @self.socketio.on('message')
         def handle_message(data):
-            print(data)
+            log(data, debug=True)
             if data == "cpu_temp":
                 self.socketio.emit("cpu_temp", json.dumps({"value": Server.CPU_TEMP}))
             elif data == "cpu_temp_avg":

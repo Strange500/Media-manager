@@ -4,7 +4,8 @@ import time
 
 from bs4 import BeautifulSoup
 import feedparser, re
-from fuzzywuzzy import fuzz
+from thefuzz import fuzz
+from thefuzz import process
 from operator import itemgetter
 from common import *
 
@@ -1184,7 +1185,7 @@ class YggConnector(ConnectorShowBase):
                 sort_name = torrent + ".mkv"
             try:
                 ep = SorterShows(sort_name, file_reachable=False, is_anime=anime)
-            except ValueError as e:
+            except (ValueError, IndexError) as e:
                 continue
             id = str(ep.id)
             if feed.get(id, None) is None:
@@ -1260,7 +1261,7 @@ class YggConnector(ConnectorShowBase):
                 choice = self.extract_better_version(
                     results[str(self.id)][str(season_number).zfill(2)][str(episode_number).zfill(2)])
             except KeyError as e:
-                print(e)
+                log(e, debug=True)
                 return None
         json.dump(self.stored_data,
                   open(os.path.join(ConnectorShowBase.connector_conf_dir, self.stored_data_file), "w"), indent=5)
@@ -2068,14 +2069,14 @@ class DataBase(Server):
                     if info["last_episode_to_air"] is not None:
                         if info["last_episode_to_air"]["season_number"] != int(season) or info["last_episode_to_air"][
                             "episode_number"] == info["seasons"][int(season) - 1]["episode_count"]:
-                            print(f"searching batch season {season} for {info['name']}")
+                            log(f"searching batch season {season} for {info['name']}")
                             if self.get_batch(int(season), int(show), anime=anime, show=show):
-                                print(f"Found batch for Season {season} of {info['name']}")
+                                log(f"Found batch for Season {season} of {info['name']}")
                                 continue
-                    print(f"searching batch ep  {season} for {info['name']}")
+                    log(f"searching batch ep  {season} for {info['name']}")
                     if self.get_episode(list_missing[target][show][season], int(season), int(show), anime=anime,
                                         show=show_status):
-                        print(f"episodes found for {info['name']} season {season}")
+                        log(f"episodes found for {info['name']} season {season}")
 
     def fetch_requested_shows(self, show=False, anime=False):
         if not (show or anime):
@@ -2099,15 +2100,20 @@ class DataBase(Server):
                                info["last_episode_to_air"][
                                    "episode_number"] == info["seasons"][int(season_number) - 1]["episode_count"]
                 if season_ended and self.get_batch(int(season_number), int(show), anime=anime, show=show_status):
-                    print(f"Found batch for Season {season} of {info['name']}")
+                    log(f"Found batch for Season {season} of {info['name']}")
                     Server.delete_query(int(show), anime=anime, show=show_status)
                     continue
                 else:
                     list_ep = [i for i in range(info["seasons"][season_number]["episode_count"] + 1)]
                     if self.get_episode(list_ep, season_number, int(show), anime=anime, show=show_status):
-                        print(f"episodes found for {info['name']} season {season_number}")
+                        log(f"episodes found for {info['name']} season {season_number}")
                         Server.delete_query(int(show), anime=anime, show=show_status)
 
+    def fetch_request(self):
+        self.fetch_requested_shows(anime=True)
+        self.fetch_requested_shows(show=True)
+
+        
     def sort(self, anime=False, shows=False, movie=False):
         directory, list_file, sorter, arg = None, None, None, {"file_reachable": True}
         if anime:
@@ -2130,43 +2136,26 @@ class DataBase(Server):
                 try:
                     s = sorter(file, **arg)
                     if self.add(s.title, anime, shows, movie):
-                        print(s)
+                        log(f"Adding {s.title} S{s.season}E{s.ep} --> {s}")
                         DataBase.add_file(s, anime, shows, movie)
                     else:
-                        print("warnings")
-                except RuntimeError as e:
-                    print(e)
-                    pass
-                except PermissionError as e:
-                    print(e)
-                    pass
-                except subprocess.CalledProcessError as e:
-                    print(e)
-                    pass
-                except ValueError as e :
-                    print(e)
-                    pass
-                except IndexError as e :
-                    print(e)
+                        log("Something went wrong when adding media to Database in sort method", debug=True)
+                except (RuntimeError, PermissionError, subprocess.CalledProcessError, ValueError, IndexError) as e:
+                    log(f"{e} ---> {file}", debug=True)
                     pass
 
 
-    def serve_forever(self):
+    def check_sorter_folder(self):
         conf_list = [(self.to_sort_anime, True, False, False),
                      (self.to_sort_show, False, True, False),
                      (self.to_sort_movie, False, False, True)]
-        try:
-            while True:
-                for path, anime, show, movie in conf_list:
-                    if type(path) == str and os.listdir(path) != []:
+        for path, anime, show, movie in conf_list:
+            if type(path) == str and os.listdir(path) != []:
+                self.sort(anime=anime, shows=show, movie=movie)
+            elif type(self.to_sort_anime) == list:
+                for directory in self.to_sort_anime:
+                    if os.listdir(directory):
                         self.sort(anime=anime, shows=show, movie=movie)
-                    elif type(self.to_sort_anime) == list:
-                        for directory in self.to_sort_anime:
-                            if os.listdir(directory):
-                                self.sort(anime=anime, shows=show, movie=movie)
-                time.sleep(5)
-        except KeyboardInterrupt:
-            print("shutting down")
 
     def have_ep(self, file: SorterShows, anime=False, shows=False, movie=False) -> bool:
         elt = DataBase.find(file.title, anime, shows, movie)
@@ -2299,6 +2288,7 @@ class DataBase(Server):
             if not is_anime:
                 is_movie = self.tmdb_db[id[1]].get("seasons", None) is None
             self.store_tmdb_info(id[0], show=(not is_anime), anime=is_anime, movie=is_movie)
+            log(f"{id} updated in tmdb_db")
             
     def save_tmdb_title(self):
         json.dump(Server.tmdb_title, open(os.path.join(VAR_DIR, TMDB_TITLE), "w", encoding="utf-8"), indent=5)

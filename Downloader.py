@@ -69,7 +69,7 @@ class Feed(DataBase):
                 feed_link = feed
                 time.sleep(2)  # avoid ban IP
                 r.clear()
-                feed = feedparser.parse(feed)
+                feed = feedparser.parse(feed_link)
                 dic = self.get_ep_with_link(feed, feed_link)
                 for ep in dic:
                     title = ep
@@ -103,27 +103,20 @@ class Feed(DataBase):
                             if not self.have_ep(ep, anime=True):
                                 try:
                                     r[f"{ep.title} - S{ep.season}E{ep.ep} {ep.ext}"] = link
-                                except AttributeError:
-                                    ...
-                                except requests.exceptions.ReadTimeout:
-                                    pass
+                                except (AttributeError, requests.exceptions.ReadTimeout) as e:
+                                    log(f"{e} ---> {ep} for anime in sort_feed method", debug=True)
                         elif "show" in feed_list:
                             if not self.have_ep(ep, shows=True):
                                 try:
                                     r[f"{ep.title} - S{ep.season}E{ep.ep} {ep.ext}"] = link
-                                except AttributeError:
-                                    ...
-                                except requests.exceptions.ReadTimeout:
-                                    print("timeout")
-                                    pass
+                                except (AttributeError, requests.exceptions.ReadTimeout) as e:
+                                    log(f"{e} ---> {ep} for show in sort_feed method", debug=True)
+                
                     else:
                         try:
                             mv = SorterMovie(ep, file_reachable=False)
-                        except AttributeError:
-                            ...
-                        except requests.exceptions.ReadTimeout:
-                            print("timeout")
-                            pass
+                        except (AttributeError, requests.exceptions.ReadTimeout) as e:
+                                    log(f"{e} ---> {ep} for show in sort_feed method", debug=True)
                         Server.feed_storage[str(mv.id)] = {
                             "torrent_title": title,
                             "link": link,
@@ -154,6 +147,7 @@ class Feed(DataBase):
                             torrent = requests.request("GET", feed[key])
                             open(os.path.join(torrent_dir, file_name), "wb").write(
                                 torrent.content)
+                            log(f"Downloaded {file_name} to torrent directory {torrent_dir}")
                         except requests.exceptions.ConnectTimeout:
                             log(f"connection to {feed[key]} tomeout", warning=True)
                             pass

@@ -11,12 +11,17 @@ from urllib.parse import urlparse, quote
 import appdirs
 import requests
 import tmdbsimple as tmdb
+from thefuzz import process
+import re
 from copy import deepcopy
 
 if platform.system() == "Linux":
     import psutil
 elif platform.system() == "Windows":
     import wmi
+
+DEBUG_MODE_ENABLE = False
+
 hostname = socket.gethostname()
 IP = socket.gethostbyname(hostname)
 
@@ -25,6 +30,7 @@ APP_AUTHOR = "Strange"
 VAR_DIR = appdirs.user_cache_dir(appname=APP_NAME, appauthor=APP_AUTHOR)
 CONF_DIR = appdirs.user_config_dir(appname=APP_NAME, appauthor=APP_AUTHOR)
 CONF_FILE = "server.conf"
+LOGS_DIR = os.path.join(VAR_DIR, "logs")
 TMDB_TITLE = os.path.join("data", "tmdb_tile.json")
 ANIME_LIB = os.path.join("lib", "anime.json")
 SHOWS_LIB = os.path.join("lib", "shows.json")
@@ -46,6 +52,7 @@ SUB_LIST = {"VOSTFR": "fre", "OmdU": "ger"}
 
 os.makedirs(VAR_DIR, exist_ok=True)
 os.makedirs(CONF_DIR, exist_ok=True)
+os.makedirs(LOGS_DIR, exist_ok=True)
 
 def get_dir_size(path="."):
     total = 0
@@ -56,24 +63,19 @@ def get_dir_size(path="."):
             elif entry.is_dir():
                 total += get_dir_size(entry.path)
     return total
-def convert_str_to_int(string:str)->int:
-    temp = ""
-    while string != "":
-        if string[0].isnumeric():
-            temp += string[0]
-        string = string[1:]
-    return int(temp)
-def delete_empty_dictionnaries(dic: dict)->dict:
-    temp = deepcopy(dic)
-    for key in dic:
-        if temp[key] == {}:
-            temp.pop(key)
-    return temp
 
+def convert_str_to_int(string:str)->int:
+    temp = "".join([i for i in string if i.isnumeric()])
+    return int(temp)
+
+def delete_empty_dictionnaries(dic: dict)->dict:
+    temp = {i:dic[i] for i in dic if dic[i] != {}}
+    return temp
 
 def remove_non_ascii(chaine):
     chaine_encodee = chaine.encode('ascii', 'ignore')
     chaine_decodee = chaine_encodee.decode('ascii')
+    chaine_decodee = re.sub(r'\\u[0-9A-Fa-f]+', '', chaine_decodee)
     return chaine_decodee
 
 
@@ -187,6 +189,12 @@ def safe_move(src, dst, max_retries=2, retry_delay=1):
 
     return False
 
+def is_connected() -> bool:
+    try:
+        requests.get("https://google.com")
+    except requests.exceptions.ConnectionError:
+        return False
+    return True
 def safe_move_dir(src, dst, max_retries=2, retry_delay=1):
     """
     Safely moves a file from the source to the destination path.
@@ -211,7 +219,7 @@ def safe_move_dir(src, dst, max_retries=2, retry_delay=1):
     retries = 0
     while retries < max_retries:
         try:
-            print(f"{src} --> {dst}")
+            log(f"{src} --> {dst}", debug=True)
             shutil.move(src, dst)
             return True
         except (PermissionError, RuntimeError):
@@ -256,14 +264,10 @@ def is_video(file_path):
     Returns:
         bool: True if the file is a video file, False otherwise.
     """
-    # Check by file extension
     video_extensions = ['.mp4', '.avi', '.mov', '.wmv', '.mkv']
     file_ext = os.path.splitext(file_path)[1].lower()
-    if file_ext in video_extensions:
-        return True
+    return file_ext in video_extensions
 
-    # Not a video file
-    return False
 
 
 def get_free_space(path):
@@ -420,7 +424,7 @@ def time_log():
     return current_time.strftime("%H:%M:%S")
 
 
-def log(to_log, warning=False, error=False):
+def log(to_log, warning=False, error=False, debug = True):
     """
     Writes a log message to a log file.
 
@@ -434,15 +438,24 @@ def log(to_log, warning=False, error=False):
 
     """
     if isinstance(to_log, str):
+        
+        date = datetime.datetime.now().strftime("%d_%m_%y")
         log_message = ""
-        print(to_log)
 
         if error:
             log_message = f"[{time_log()}] ERROR: {to_log}\n"
+            print(log_message)
         elif warning:
             log_message = f"[{time_log()}] WARNING: {to_log}\n"
+            print(log_message)
+        elif debug and DEBUG_MODE_ENABLE:
+            log_message = f"[{time_log()}] DEBUG : {to_log}\n"
+            print(log_message)
+        elif not debug:
+            log_message = f"[{time_log()}] {to_log}\n"
+            print(log_message)
 
-        with open(os.path.join(VAR_DIR, "log.txt"), "a", encoding="utf-8") as log_file:
+        with open(os.path.join(LOGS_DIR, f"{date}.txt"), "a", encoding="utf-8") as log_file:
             log_file.write(log_message)
 
 
@@ -649,8 +662,8 @@ class Server():
                             line[1] = line[1].strip()
                         arg1, arg2 = line[0].strip(), line[1]
                     except IndexError as e:
-                        print(
-                            f"Some values are not set in {CONF_FILE}, please make sure you have all set. Here is the line where the issue occurred: {line}")
+                        log(
+                            f"Some values are not set in {CONF_FILE}, please make sure you have all set. Here is the line where the issue occurred: {line}", error=True)
                         quit()
                     config[arg1] = arg2
 
@@ -696,7 +709,7 @@ class Server():
 
             return config
         except IOError as e:
-            print(e)
+            log(e, error=True)
             quit()
 
     conf = load_config()
@@ -892,20 +905,14 @@ class Server():
         info = Server.tmdb_db.get(title, None)
         
         if info is not None:
-            if anime:
-                self.store_tmdb_info(info["id"], show=False, anime=True, movie=False)
-                info = Server.tmdb_db.get(title, None)
-                return info
-            if show:
-                if info.get("seasons", None) is None:
-                    self.store_tmdb_info(info["id"], show=True, movie=False)
-                    info = Server.tmdb_db.get(title, None)
-                return info
-            if movie:
-                return info
+            return info
         else:
-            id = self.search.tv(query=title)
-            id = self.search.results[0]["id"]
+            if show or anime:
+                id = self.search.tv(query=title)
+                id = self.search.results[0]["id"]
+            elif movie:
+                id = self.search.movie(query=title)
+                id = self.search.results[0]["id"]
             info = self.store_tmdb_info(id,anime=anime, show=show, movie=movie)
             return info
     def make_anime_seasons(self, id:int):
@@ -961,7 +968,9 @@ class Server():
         """
         if not isinstance(title, str):
             raise TypeError(f"{title} is not a string")
-        tmdb_title = Server.get_tmdb_title(title)
+        tmdb_title, score = process.extractOne(title, [i for i in self.tmdb_db])
+        if score < 90:
+            tmdb_title = Server.get_tmdb_title(title)
         if tmdb_title is not None:
             return tmdb_title
         elif anime or shows:
@@ -971,7 +980,6 @@ class Server():
             self.search.movie(query=title)
             t = "title"
         try:
-            self.store_tmdb_info(self.search.results[0]["id"], anime=anime, show=shows, movie=movie)
             Server.add_tmdb_title(title, self.search.results[0][t])
             return self.search.results[0][t]
         except IndexError:

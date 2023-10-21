@@ -66,6 +66,7 @@ class Gg_drive():
     def run(self):
         try:
             self.update_dict_ep()
+            log("GGD drive(s) updated")
         except KeyboardInterrupt:
             json.dump(Gg_drive.dict_ep, open(os.path.join(VAR_DIR, GGD_LIB), "w", encoding="utf-8"), indent=5)
             json.dump(Server.tmdb_db, open(os.path.join(VAR_DIR, TMDB_DB), "w", encoding="utf-8"), indent=5)
