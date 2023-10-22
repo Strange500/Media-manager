@@ -984,7 +984,7 @@ class YggConnector(ConnectorShowBase):
 
             return results
         try:
-            response = requests.request('GET', url)
+            response = flareSolverrGet(url)
         except requests.exceptions.ConnectionError:
             time.sleep(5)
             self.parse_page(url)
@@ -1017,7 +1017,7 @@ class YggConnector(ConnectorShowBase):
 
     def get_nfo(self, id_torrent: int):
         time.sleep(0.1)
-        response = requests.request('GET', f'{self.domain}engine/get_nfo?torrent={id_torrent}')
+        response = flareSolverrGet(f'{self.domain}engine/get_nfo?torrent={id_torrent}')
         content, result = self.prepare_nfo(str(response.content)), {}
         temp, title = {}, None
         for part in content:
@@ -2026,7 +2026,7 @@ class DataBase(Server):
             target_directory = os.path.join(Server.conf['torrent_dir'], "movie")
         else:
             raise ValueError("You should choose show, anime or movie in function parameter")
-        torrent_content = requests.request('GET', url).content
+        torrent_content = flareSolverrGet(url).content
         if os.path.splitext(name)[1] != ".torrent":
             name = name + ".torrent"
         os.makedirs(target_directory, exist_ok=True)
