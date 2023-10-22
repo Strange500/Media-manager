@@ -59,16 +59,14 @@ os.makedirs(LOGS_DIR, exist_ok=True)
 
 
 def flareSolverrGet(url : str =None):
+    data = {
+        "cmd" : "request.get",
+        "url" : url,
+        "maxTimeout" : 60000
 
-    if FLARESOLVERRURL is not None:
-        data = {
-            "cmd" : "request.get",
-            "url" : url,
-            "maxTimeout" : 60000
-
-        }
-        response = requests.post(FLARESOLVERRURL,json=data, headers={'Content-Type': 'application/json'})
-        return response
+    }
+    response = requests.post(FLARESOLVERRURL,json=data, headers={'Content-Type': 'application/json'})
+    return response.json()['solution']["response"]
 
 def get_dir_size(path="."):
     total = 0

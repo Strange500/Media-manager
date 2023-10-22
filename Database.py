@@ -988,7 +988,7 @@ class YggConnector(ConnectorShowBase):
         except requests.exceptions.ConnectionError:
             time.sleep(5)
             self.parse_page(url)
-        html = BeautifulSoup(response.content, features="html.parser")
+        html = BeautifulSoup(response, features="html.parser")
         h2_tags_with_font = [h2_tag for h2_tag in html.find_all("h2") if h2_tag.find("font", style="float: right")]
         if len(h2_tags_with_font) == 0:
             return None, None
@@ -1018,7 +1018,7 @@ class YggConnector(ConnectorShowBase):
     def get_nfo(self, id_torrent: int):
         time.sleep(0.1)
         response = flareSolverrGet(f'{self.domain}engine/get_nfo?torrent={id_torrent}')
-        content, result = self.prepare_nfo(str(response.content)), {}
+        content, result = self.prepare_nfo(str(response)), {}
         temp, title = {}, None
         for part in content:
             key, value = self.get_value(part)
@@ -2026,7 +2026,7 @@ class DataBase(Server):
             target_directory = os.path.join(Server.conf['torrent_dir'], "movie")
         else:
             raise ValueError("You should choose show, anime or movie in function parameter")
-        torrent_content = flareSolverrGet(url).content
+        torrent_content = flareSolverrGet(url)
         if os.path.splitext(name)[1] != ".torrent":
             name = name + ".torrent"
         os.makedirs(target_directory, exist_ok=True)
