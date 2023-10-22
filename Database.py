@@ -1065,7 +1065,7 @@ class YggConnector(ConnectorShowBase):
 
     def prepare_nfo(self, nfo_content: str):
         content = bytes(str(nfo_content).replace('b"<pre>', "").replace('\n</pre>"', ""), "utf-8").decode(
-            'unicode_escape')
+            'unicode_escape', errors='ignore')
         content, result = content.split("\n"), {}
         temp, title, result = {}, None, []
         for lines in content:
