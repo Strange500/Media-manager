@@ -83,6 +83,8 @@ class deployServ():
                         fetch_thr = threading.Thread(target=self.db.fetch_request)
                         fetch_thr.start()
                         fetch_requets = True
+                    elif (fetch_requets and not fetch_thr.is_alive()):
+                        fetch_requets = False
 
                 if hour == 11:
                     
