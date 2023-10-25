@@ -154,10 +154,8 @@ class Feed(DataBase):
                         time.sleep(1)  # avoid ban ip
 
     def run(self):
-        while True:
-            self.sort_feed()
-            self.dl_torrent()
-            time.sleep(300)
+        self.sort_feed()
+        self.dl_torrent()
 
 if __name__ == '__main__':
     d = Feed()

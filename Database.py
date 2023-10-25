@@ -2136,7 +2136,7 @@ class DataBase(Server):
                 try:
                     s = sorter(file, **arg)
                     if self.add(s.title, anime, shows, movie):
-                        log(f"Adding {s.title} S{s.season}E{s.ep} --> {s}")
+                        log(f"Adding {s.title} --> {s}")
                         DataBase.add_file(s, anime, shows, movie)
                     else:
                         log("Something went wrong when adding media to Database in sort method", debug=True)
