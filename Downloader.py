@@ -62,14 +62,14 @@ class Feed(DataBase):
         r = {}
         for feed_list in self.feed_dict:
 
-            for feed in self.feed_dict[feed_list]:
-                if feed == "":
+            for feeds in self.feed_dict[feed_list]:
+                if feeds == "":
                     continue
                 ls = []
-                feed_link = feed
+                feed_link = feeds
                 time.sleep(2)  # avoid ban IP
                 r.clear()
-                feed = feedparser.parse(feed_link)
+                feed = feedparser.parse(feeds)
                 dic = self.get_ep_with_link(feed, feed_link)
                 for ep in dic:
                     title = ep
