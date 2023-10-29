@@ -49,7 +49,8 @@ class Feed(DataBase):
                     break
             if not is_ban:
                 if "yggtorrent" in feed_title:
-                    dicto[entry.title] = entry.enclosures[0].get("url")
+                    dicto[entry.title] = {"link" :entry.enclosures[0].get("url"),
+                                          "seeders" : 10}
                 else:
                     dicto[entry.title] = {"link": entry.link,
                                           "seeders": entry["nyaa_seeders"]}
