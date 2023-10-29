@@ -10,6 +10,7 @@ from typing import Dict, Union
 from urllib.parse import urlparse, quote
 import appdirs
 import requests
+from urllib.parse import urlparse
 import tmdbsimple as tmdb
 from thefuzz import process
 import re
@@ -22,7 +23,7 @@ elif platform.system() == "Windows":
 
 DEBUG_MODE_ENABLE = False
 
-FLARESOLVERRURL = None
+FLARESOLVERRURL = "http://127.0.0.1:8191/v1"
 
 hostname = socket.gethostname()
 IP = socket.gethostbyname(hostname)
@@ -58,7 +59,7 @@ os.makedirs(LOGS_DIR, exist_ok=True)
 
 
 
-def flareSolverrGet(url : str =None):
+def flareSolverr_cookies_useragent(url : str =None):
     data = {
         "cmd" : "request.get",
         "url" : url,
@@ -66,7 +67,16 @@ def flareSolverrGet(url : str =None):
 
     }
     response = requests.post(FLARESOLVERRURL,json=data, headers={'Content-Type': 'application/json'})
-    return response.json()['solution']["response"]
+    if response.status_code == 200:
+        response_data = json.loads(response.content)
+        cookies = response_data["solution"]["cookies"]
+        cookies = {cookie["name"] : cookie["value"] for cookie in cookies}
+
+        user_agent = response_data["solution"]["userAgent"]
+
+        return cookies, user_agent
+
+    return None, None
 
 def get_dir_size(path="."):
     total = 0

@@ -129,13 +129,18 @@ class Feed(DataBase):
             self.feed_dict[feed_list] = ls
 
     def dl_torrent(self):
+        d = DataBase()
+        anime,show,movie = False, False, False
         for list_feed in self.feed_dict:
             for feed in self.feed_dict[list_feed]:
                 if "anime" in list_feed:
+                    anime,show,movie = True, False, False
                     torrent_dir = os.path.join(Server.conf['torrent_dir'], "anime")
                 elif "show" in list_feed:
+                    anime,show,movie = False, True, False
                     torrent_dir = os.path.join(Server.conf['torrent_dir'], "show")
                 elif "movie" in list_feed:
+                    anime,show,movie = False, False, True
                     torrent_dir = os.path.join(Server.conf['torrent_dir'], "movie")
                 else:
                     raise ValueError
@@ -144,9 +149,7 @@ class Feed(DataBase):
                     file_name = forbidden_car(f"{key}.torrent")
                     if file_name not in os.listdir(torrent_dir):
                         try:
-                            torrent = requests.request("GET", feed[key])
-                            open(os.path.join(torrent_dir, file_name), "wb").write(
-                                torrent.content)
+                            d.dl_torrent(feed[key], file_name,show=show, anime=anime, movie=movie)
                             log(f"Downloaded {file_name} to torrent directory {torrent_dir}")
                         except requests.exceptions.ConnectTimeout:
                             log(f"connection to {feed[key]} tomeout", warning=True)

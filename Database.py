@@ -920,8 +920,21 @@ class YggConnector(ConnectorShowBase):
         self.trusted_sources_batch_anime = [self.domain + i for i in self.conf["trusted_sources_batch_anime"]]
         self.trusted_sources_batch_show = [self.domain + i for i in self.conf["trusted_sources_batch_show"]]
         self.id = id
+        self.cookies = None
+        self.user_agent = None
 
         self.active = self.conf["active"]
+
+    def get_cookies_user_agent(self):
+        self.cookies, self.user_agent = flareSolverr_cookies_useragent(self.domain)
+
+    def getresponse(self, url):
+        response = requests.get(url, cookies=self.cookies, headers={"User-Agent": self.user_agent})
+        if response.status_code == 403:
+            self.get_cookies_user_agent()
+            return requests.get(url, cookies=self.cookies, headers={"User-Agent": self.user_agent})
+        else:
+            return response
 
     def extract_feed_info(self, url: str):
         feed = feedparser.parse(url)
@@ -930,7 +943,7 @@ class YggConnector(ConnectorShowBase):
             if 'title' in entry and "link" in entry:
                 title = " ".join(entry.title.split(" ")[:-1])
                 seed_leachers = entry.title.split(" ").pop()
-                seeders = seed_leachers.replace("(S:", "").split("/")[0]
+                seeders = seed_leachers.replace("S:", "").split("/")[0]
                 size = entry["description"].split(" Taille de l'upload: ")[-1].split(" ")[0]
                 link = [k["href"] for k in entry["links"] if k['rel'] == 'enclosure'][0]
                 link = "/".join(link.split("/")[1:])
@@ -984,11 +997,11 @@ class YggConnector(ConnectorShowBase):
 
             return results
         try:
-            response = flareSolverrGet(url)
+            response = self.getresponse(url)
         except requests.exceptions.ConnectionError:
             time.sleep(5)
             self.parse_page(url)
-        html = BeautifulSoup(response, features="html.parser")
+        html = BeautifulSoup(response.content, features="html.parser")
         h2_tags_with_font = [h2_tag for h2_tag in html.find_all("h2") if h2_tag.find("font", style="float: right")]
         if len(h2_tags_with_font) == 0:
             return None, None
@@ -1017,8 +1030,8 @@ class YggConnector(ConnectorShowBase):
 
     def get_nfo(self, id_torrent: int):
         time.sleep(0.1)
-        response = flareSolverrGet(f'{self.domain}engine/get_nfo?torrent={id_torrent}')
-        content, result = self.prepare_nfo(str(response)), {}
+        response = self.getresponse(f'{self.domain}engine/get_nfo?torrent={id_torrent}')
+        content, result = self.prepare_nfo(str(response.content)), {}
         temp, title = {}, None
         for part in content:
             key, value = self.get_value(part)
@@ -1427,6 +1440,19 @@ class DataBase(Server):
         self.to_sort_show = Server.conf["sorter_show_dir"]
         self.to_sort_movie = Server.conf["sorter_movie_dir"]
         self.check_database()
+        self.cookies = None
+        self.user_agent = None
+    
+    def get_cookies_user_agent(self, url :str):
+        self.cookies, self.user_agent = flareSolverr_cookies_useragent(url=url)
+
+    def getresponse(self, url :str):
+        response = requests.get(url, cookies=self.cookies, headers={"User-Agent": self.user_agent})
+        if response.status_code == 403:
+            self.get_cookies_user_agent(f"{urlparse(url).scheme}://{urlparse(url).netloc}/")
+            return requests.get(url, cookies=self.cookies, headers={"User-Agent": self.user_agent})
+        return response
+
 
     def check_database(self):
         """check if all information from Database.shows/anime/movies are correct (dir exist)"""
@@ -2026,7 +2052,7 @@ class DataBase(Server):
             target_directory = os.path.join(Server.conf['torrent_dir'], "movie")
         else:
             raise ValueError("You should choose show, anime or movie in function parameter")
-        torrent_content = flareSolverrGet(url)
+        torrent_content = self.getresponse(url).content
         if os.path.splitext(name)[1] != ".torrent":
             name = name + ".torrent"
         os.makedirs(target_directory, exist_ok=True)
