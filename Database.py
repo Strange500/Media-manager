@@ -1465,6 +1465,8 @@ class DataBase(Server):
         for media in DataBase.animes:
             if not os.path.isdir(DataBase.animes[media]["path"]):
                 ls.pop(media)
+            if media in self.ban_ids:
+                DataBase.delete(int(media), anime=True)
         if not compare_dictionaries(DataBase.animes, ls):
             DataBase.animes = ls.copy()
             json.dump(DataBase.animes, open(os.path.join(VAR_DIR, ANIME_LIB), "w", encoding="utf-8"), indent=5)
@@ -1473,6 +1475,8 @@ class DataBase(Server):
         for media in DataBase.shows:
             if not os.path.isdir(DataBase.shows[media]['path']):
                 ls.pop(media)
+            if media in self.ban_ids:
+                DataBase.delete(int(media), shows=True)
         if not compare_dictionaries(DataBase.shows, ls):
             DataBase.shows = ls.copy()
             json.dump(DataBase.shows, open(os.path.join(VAR_DIR, SHOWS_LIB), "w", encoding="utf-8"), indent=5)
@@ -1481,9 +1485,12 @@ class DataBase(Server):
         for media in DataBase.movies:
             if not os.path.isdir(DataBase.movies[media]['path']):
                 ls.pop(media)
+            if media in self.ban_ids:
+                DataBase.delete(int(media), movie=True)
         if not compare_dictionaries(DataBase.movies, ls):
             DataBase.movies = ls.copy()
             json.dump(DataBase.movies, open(os.path.join(VAR_DIR, MOVIES_LIB), "w", encoding="utf-8"), indent=5)
+
 
     def var(self, anime=False, shows=False, movie=False) -> tuple[
         dict | None, Anime | Show | Movie | None, list | None, str | None]:
