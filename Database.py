@@ -1461,6 +1461,7 @@ class DataBase(Server):
 
     def check_database(self):
         """check if all information from Database.shows/anime/movies are correct (dir exist)"""
+        self.ban_ids = open(BAN_ID_FILE, "r").read().split("\n")
         ls = DataBase.animes.copy()
         for media in DataBase.animes:
             if not os.path.isdir(DataBase.animes[media]["path"]):
