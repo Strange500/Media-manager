@@ -1586,13 +1586,15 @@ class DataBase(Server):
         info = super().get_tmdb_info(tmdb_title, show=shows, anime=anime, movie=movie)
         if info is None:
             return False
-        try :
+        try:
             path = os.path.join(self.get_dir_freer(anime, shows, movie), forbidden_car(info[title_info]))
         except KeyError:
             try :
                 path = os.path.join(self.get_dir_freer(anime, shows, movie), forbidden_car(info["name"]))
+                title_info = "name"
             except KeyError:
                 path = os.path.join(self.get_dir_freer(anime, shows, movie), forbidden_car(info["title"]))
+                title_info = "title"
 
 
         os.makedirs(path, exist_ok=True)
