@@ -992,8 +992,11 @@ class Server():
         """
         if not isinstance(title, str):
             raise TypeError(f"{title} is not a string")
-        tmdb_title, score = process.extractOne(title, [i for i in self.tmdb_db])
-        if score < 90:
+        try:
+            tmdb_title, score = process.extractOne(title, [i for i in self.tmdb_db])
+            if score < 90:
+                tmdb_title = Server.get_tmdb_title(title)
+        except TypeError:
             tmdb_title = Server.get_tmdb_title(title)
         if tmdb_title is not None:
             return tmdb_title

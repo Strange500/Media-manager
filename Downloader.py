@@ -148,7 +148,7 @@ class Feed(DataBase):
                 os.makedirs(torrent_dir, exist_ok=True)
                 for key in feed:
                     file_name = forbidden_car(f"{key}.torrent")
-                    if file_name not in os.listdir(torrent_dir):
+                    if file_name not in os.listdir(torrent_dir) and not self.have_ep(SorterShows(key, file_reachable=False, is_anime=anime), anime=anime, shows=show, movie=movie):
                         try:
                             d.dl_torrent(feed[key], file_name,show=show, anime=anime, movie=movie)
                             log(f"Downloaded {file_name} to torrent directory {torrent_dir}")

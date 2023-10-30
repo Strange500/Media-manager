@@ -16,7 +16,11 @@ class SorterCommon(Server):
         super().__init__()
         self.path = file_path
         self.file_reachable = file_reachable
-        self.file_name = os.path.basename(self.path)
+        self.file_name = self.path
+        self.clean_file_name = self.path
+        self.make_clean_file_name()
+        self.file_name = self.clean_file_name
+        self.file_name = os.path.basename(self.file_name)
         self.clean_file_name = os.path.splitext(self.file_name)[0].replace(".", " ").replace("_",
                                                                                              " ")  # get file name with no extension
         self.ext = os.path.splitext(self.file_name)[1]
