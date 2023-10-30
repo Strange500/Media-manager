@@ -1446,6 +1446,7 @@ class DataBase(Server):
         self.check_database()
         self.cookies = None
         self.user_agent = None
+        self.ban_ids = open(BAN_ID_FILE, "r").read().split("\n")
     
     def get_cookies_user_agent(self, url :str):
         self.cookies, self.user_agent = flareSolverr_cookies_useragent(url=url)

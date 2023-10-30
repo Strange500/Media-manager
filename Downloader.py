@@ -92,7 +92,8 @@ class Feed(DataBase):
                                 "torrent_title": title,
                                 "link": link,
                                 "origin_feed": feed_link,
-                                "seeders": seeders
+                                "seeders": seeders,
+                                "id": ep.id
                             }
                         except AttributeError as e:
                             log(f"can't determine the show {ep}", error=True)
@@ -121,7 +122,8 @@ class Feed(DataBase):
                         Server.feed_storage[str(mv.id)] = {
                             "torrent_title": title,
                             "link": link,
-                            "origin_feed": feed_link
+                            "origin_feed": feed_link,
+                            "id" : mv.id
                         }
                         if not self.have_ep(ep, movie=True):
                             r[f"{mv.title} - {mv.ext}"] = link
@@ -148,7 +150,7 @@ class Feed(DataBase):
                 os.makedirs(torrent_dir, exist_ok=True)
                 for key in feed:
                     file_name = forbidden_car(f"{key}.torrent")
-                    if file_name not in os.listdir(torrent_dir) and not self.have_ep(SorterShows(key, file_reachable=False, is_anime=anime), anime=anime, shows=show, movie=movie):
+                    if file_name not in os.listdir(torrent_dir) and feed[key]["id"] not in self.ban_ids and not self.have_ep(SorterShows(key, file_reachable=False, is_anime=anime), anime=anime, shows=show, movie=movie):
                         try:
                             d.dl_torrent(feed[key], file_name,show=show, anime=anime, movie=movie)
                             log(f"Downloaded {file_name} to torrent directory {torrent_dir}")
