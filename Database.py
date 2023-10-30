@@ -2165,6 +2165,7 @@ class DataBase(Server):
         
     def sort(self, anime=False, shows=False, movie=False):
         directory, list_file, sorter, arg = None, None, None, {"file_reachable": True}
+        self.check_database()
         if anime:
             sorter, arg = SorterShows, {"file_reachable": True, "is_anime": True}
             directory = self.to_sort_anime
