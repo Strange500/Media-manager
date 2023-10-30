@@ -1467,7 +1467,7 @@ class DataBase(Server):
             if not os.path.isdir(DataBase.animes[media]["path"]):
                 ls.pop(media)
             if media in self.ban_ids:
-                DataBase.delete(int(media), anime=True)
+                Anime(DataBase.animes[media]["path"], DataBase.animes[media]["title"]).delete()
         if not compare_dictionaries(DataBase.animes, ls):
             DataBase.animes = ls.copy()
             json.dump(DataBase.animes, open(os.path.join(VAR_DIR, ANIME_LIB), "w", encoding="utf-8"), indent=5)
@@ -1477,7 +1477,7 @@ class DataBase(Server):
             if not os.path.isdir(DataBase.shows[media]['path']):
                 ls.pop(media)
             if media in self.ban_ids:
-                DataBase.delete(int(media), shows=True)
+                Anime(DataBase.shows[media]["path"], DataBase.shows[media]["title"]).delete()
         if not compare_dictionaries(DataBase.shows, ls):
             DataBase.shows = ls.copy()
             json.dump(DataBase.shows, open(os.path.join(VAR_DIR, SHOWS_LIB), "w", encoding="utf-8"), indent=5)
@@ -1487,7 +1487,7 @@ class DataBase(Server):
             if not os.path.isdir(DataBase.movies[media]['path']):
                 ls.pop(media)
             if media in self.ban_ids:
-                DataBase.delete(int(media), movie=True)
+                Anime(DataBase.movies[media]["path"], DataBase.movies[media]["title"]).delete()
         if not compare_dictionaries(DataBase.movies, ls):
             DataBase.movies = ls.copy()
             json.dump(DataBase.movies, open(os.path.join(VAR_DIR, MOVIES_LIB), "w", encoding="utf-8"), indent=5)
