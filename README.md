@@ -1,6 +1,6 @@
 # Shows-Sorter
 An automated sorter (Rename/Sort/Manage Database)
-WORK IN PROGRESS
+NO LONGER MAINTENED
 <a href="https://www.codefactor.io/repository/github/strange500/media-manager"><img src="https://www.codefactor.io/repository/github/strange500/media-manager/badge" alt="CodeFactor" /></a>
 <hr>
 <h1> Presentation </h1>
